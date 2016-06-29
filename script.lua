@@ -10,85 +10,109 @@ require 'string'
 require 'cunn'
 
 require 'MSDC'
-require "mini_model"
+require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
+require 'priors'
 
-function Temp_Loss(Model,criterion,image1, image2)
-	local LR=0.1
-
-	local Data1={data=torch.Tensor(1, 3, 200, 200),size = function() return 1 end}
-	local Data2={data=torch.Tensor(1, 3, 200, 200),size = function() return 1 end}
+function Rico_Training(Model, criterion, Mode,image1, image2, image3, image4)
+	local LR=0.01
+	local mom=0.9
+        local coefL2=0
+	local criterion=nn.MSDCriterion()
+	criterion=criterion:cuda()
 	
-	Data1.data[{1}]=image1:cuda()
-	Data2.data=image2:cuda()
-	print(Data1.data:size())
-	State1=Model:forward({Data1.data})
-	Model2=Model:clone('weight','bias','gradWeight',
-			'gradBias','weight','bias','running_mean','running_std')
+	if image1 then im1=image1:cuda() end
+	if image2 then im2=image2:cuda() end
+	if image3 then im3=image3:cuda() end
+	if image4 then im4=image4:cuda() end
 
-	State2=Model2:forward(Data2.data)
-	--Loss_Rico= computeGradient(State1,State2, Mode)
-	print(" 1 : "..Model.output[1])
-	print(" 2 : "..Model2.output[1])
+	parameters,gradParameters = Model:getParameters()
 
-	print(Model:get(9).weight)
+	      -- create closure to evaluate f(X) and df/dX
+      local feval = function(x)
+         -- just in case:
+         collectgarbage()
 
-	loss=criterion:forward({State1,State2})
-	GradOutputs=criterion:backward({State1,State2})
-	print(GradOutputs)
+         -- get new parameters
+         if x ~= parameters then
+            parameters:copy(x)
+         end
 
-	-- calculer les gradients pour les deux images
-	Model:backward(Data1.data,GradOutputs[1])
-	Model2:backward(Data2.data,GradOutputs[2])
-	
-	-- met à jour les parmetres avec les 2 gradients
-	Model:updateParameters(LR)
-	
-end
+         -- reset gradients
+        gradParameters:zero()
 
---TODO
-function getImages(list, indice)
-	local image1=image.load(list[indice],3,'byte')
-	local image2=image.load(list[indice+1],3,'byte')
-	local img1_rsz=image.scale(image1,"200x200")
-	local img2_rsz=image.scale(image2,"200x200")
-	
-	local Mode="Temp"
 
-	return img1_rsz, img2_rsz, Mode
-end
-
---TODO
-function Rico(model,criterion,Mode,image1, image2, image3, image4)
---Mode : Simplicity, Temporal Coherence, proportionnality, Causality, Repeatability
-	local Mode= Mode or 'Prop'
 	if Mode=='Simpl' then print("Simpl")
-	elseif Mode=="Temp" then 
-		Temp_Loss(model,criterion,image1, image2)
-	elseif Mode=="Prop" then print("Prop")
-	elseif Mode=="Caus" then print("Caus")
-	elseif Mode=="Rep" then print("Rep")	
+	elseif Mode=="Temp" then
+	     loss,gradParameters=doStuff_temp(Model,criterion,gradParameters, im1,im2)
+	elseif Mode=="Prop" then
+	     loss,gradParameters=doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)	
+	elseif Mode=="Caus" then 
+	     loss,gradParameters=doStuff_Caus(Model,criterion,gradParameters,im1,im2,im3,im4)
+	elseif Mode=="Rep" then
+	     loss,gradParameters=doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
 	else print("Wrong Mode")
 	end
+
+         return loss,gradParameters
+	end
+	-- met à jour les parmetres avec les 2 gradients
+	         -- Perform SGD step:
+        sgdState = sgdState or { learningRate = LR, momentum = mom,learningRateDecay = 5e-7,weightDecay=coefL2 }
+	parameters, loss=optim.sgd(feval, parameters, sgdState)
 end
 
+
+
 --load the two images
-function train_epoch(Model)
-	local criterion=nn.MSDCriterion()	
-	criterion=criterion:cuda()
-	local list1=images_Paths(list_folders_images[1])
-	local max=1
-	for i=1, #list1-1 do
-		image1, image2, Mode=getImages(list1,i)
-		Rico(Model,criterion,"Temp",image1, image2)
+function train_epoch(Model, list_folders_images, list_txt)
+	
+	local list_t=images_Paths(list_folders_images[1])
+	nbEpoch=1
+	for epoch=1, nbEpoch do
+		print('--------------Epoch : '..epoch..' ---------------')
+		print(#list_folders_images..' : sequences')
+		nbList= #list_folders_images
+		nbList=1
+		
+		for l=1,nbList do
+			list=images_Paths(list_folders_images[l])
+			for i=1, #list-1 do
+				Mode='Temp'
+				im1=getImage(list,i)
+				im2=getImage(list,i+1)
+				Rico_Training(Model, criterion, Mode,im1, im2)
+				if i<#list-3 then
+					im3=getImage(list,i+2)
+					im4=getImage(list,i+3)
+					Mode='Prop'
+					Rico_Training(Model, criterion, Mode,im1, im2,im3, im4)
+					Mode='Rep'
+					Rico_Training(Model, criterion, Mode,im1, im2,im3, im4)
+				end
+			end
+			xlua.progress(l, #list_folders_images)
+		end
+		save_model(Model,'./Save/Save29.t7')
+		Print_performance(Model,list_t,epoch)
 	end
 end
 
-list_folders_images=Get_HeadCamera_HeadMvt()
+local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
+
+print("hello")
+print(list_txt)
 
 local image_width=200
 local image_height=200
-local Model=getNet(image_width,image_height)
+require "mini_model"
+local Model=getModel(image_width,image_height)
 Model=Model:cuda()
-train_epoch(Model)
+--train_epoch(Model, list_folders_images)
+
+tensor, label=tensorFromTxt(list_txt[1])
+
+create_Training_list(images_Paths(list_folders_images[1]), list_txt[1])
+
+
 

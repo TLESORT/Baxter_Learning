@@ -2,14 +2,14 @@
 require 'nn'
 
 -- network-------------------------------------------------------
-function getNet(image_width,image_height)
+function getModel(image_width,image_height)
 	nbFilter=32
 
 	Timnet = nn.Sequential()
 
 	Timnet:add(nn.SpatialConvolution(3, nbFilter, 3, 3))
 	
-	Timnet:add(nn.SpatialBatchNormalization(nbFilter*200*200)) 
+	--Timnet:add(nn.SpatialBatchNormalization(nbFilter*200*200)) 
 	Timnet:add(nn.ReLU())
 	Timnet:add(nn.SpatialMaxPooling(20,20,20,20))
 
@@ -21,10 +21,10 @@ function getNet(image_width,image_height)
 
 	Timnet:add(nn.View(nbFilter*width*height))                    -- reshapes  3D tensor into 1D tensor 
 	Timnet:add(nn.Linear(nbFilter*width*height, 100))             -- fully connected layer 
-	Timnet:add(nn.ReLU())  
+	Timnet:add(nn.ReLU())
 	--Timnet:add(nn.BatchNormalization(100))                  
 	Timnet:add(nn.Linear(100, 100)) 
-	Timnet:add(nn.ReLU())                       
+	Timnet:add(nn.ReLU())                    
 	Timnet:add(nn.Linear(100, 1))                   -- 10 is the number of outputs of the network 
 	--Timnet=Timnet:cuda()
 
