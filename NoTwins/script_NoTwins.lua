@@ -9,10 +9,10 @@ require 'math'
 require 'string'
 require 'cunn'
 
-require 'MSDC'
-require 'functions.lua'
-require "Get_HeadCamera_HeadMvt"
-require 'priors'
+require '../MSDC'
+require '../functions.lua'
+require "../Get_HeadCamera_HeadMvt"
+require 'priors_NoTwins'
 
 function Rico_Training(Model, Mode,image1, image2, image3, image4)
 	local LR=0.01
@@ -40,8 +40,6 @@ function Rico_Training(Model, Mode,image1, image2, image3, image4)
 
          -- reset gradients
         gradParameters:zero()
-
-
 	if Mode=='Simpl' then print("Simpl")
 	elseif Mode=='Temp' then
 	     loss,gradParameters=doStuff_temp(Model,criterion,gradParameters, im1,im2)
@@ -53,8 +51,7 @@ function Rico_Training(Model, Mode,image1, image2, image3, image4)
 	elseif Mode=='Rep' then
 	     --coefL2=1  -- unstable in other case
 	     loss,gradParameters=doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
-	else print("Wrong Mode")
-	end
+	else print("Wrong Mode")end
          return loss,gradParameters
 	end
 	-- met à jour les parmetres avec les 2 gradients
@@ -64,7 +61,7 @@ function Rico_Training(Model, Mode,image1, image2, image3, image4)
 	state=state or {learningRate = LR,paramVariance=nil, weightDecay=0.0005 }
 	config=config or {}
 	optim.adagrad(feval, parameters,config, state)
-
+	--Model:updateParameters(LR)
 
 	--parameters, loss=optim.sgd(feval, parameters, sgdState)
 end
@@ -107,21 +104,21 @@ function train_epoch(Model, list_folders_images, list_txt)
 			end
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Model,'./Save/Save07_07.t7')
+		save_model(Model,'./Save/SaveNoTwins08_07.t7')
 		Print_performance(Model,list_t,epoch)
 	end
 end
 
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
-local reload=true
+local reload=false
 
 local image_width=200
 local image_height=200
 
 if reload then
-	Model = torch.load('./Save/Save07_07.t7'):double()
+	Model = torch.load('./Save/SaveNoTwins08_07.t7'):double()
 else
-	require "mini_model"
+	require "../models/mini_model"
 	Model=getModel(image_width,image_height)	
 end
 Model=Model:cuda()
