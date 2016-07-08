@@ -20,9 +20,8 @@ function getModel(image_width,image_height)
 	Timnet:add(nn.ReLU())
 	Timnet:add(nn.SpatialMaxPooling(10,10,10,10))
 	Timnet:add(nn.View(16*5*5))                    -- reshapes  3D tensor into 1D tensor 
-	Timnet:add(nn.Linear(16*5*5, 100))
-	Timnet:add(nn.ReLU())                    
-	Timnet:add(nn.Linear(100, 1))                   -- 10 is the number of outputs of the network 
+	Timnet:add(nn.Linear(16*5*5, 1))                   -- 10 is the number of outputs of the network 
+	--Timnet:add(nn.Tanh())
 	--Timnet=Timnet:cuda()
 
 	-- Initiallisation : "Understanding the difficulty of training deep feedforward neural networks"

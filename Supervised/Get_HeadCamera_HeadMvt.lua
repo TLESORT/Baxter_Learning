@@ -96,97 +96,31 @@ function tensorFromTxt(path)
     return torch.Tensor(data), labels
 end
 
+function arrondit(value)
 
+	floor=math.floor(value*10)/10
+	ceil=math.ceil(value*10)/10
+	if math.abs(value-ceil)>math.abs(value-floor) then return floor
+	else return ceil end
+end
 
 -- A modifier on a rassemblé les images par joint et pas par delta....
 
-function create_Head_Training_list(list_im, txt)
-	 local associated_images={im1={},im2={},im3={},im4={},Mode={}}
-
+function create_Im_Training_list(list_im, txt)
+	 local images={im={},joint={}}
 	tensor, label=tensorFromTxt(txt)
 
+-- we process the joint position to make them less precise ~
 	for i=1, (#tensor[{}])[1] do
 		-- arrondit au 1/10 près
-		floor=math.floor(tensor[i][3]*10)/10
-		ceil=math.ceil(tensor[i][3]*10)/10
-		if math.abs(tensor[i][3]-ceil)>math.abs(tensor[i][3]-floor) then tensor[i][3]= floor
-		else tensor[i][3]= ceil end
+		tensor[i][3]=arrondit(tensor[i][3])
 	end
 
 -- TEMP : ici il est considéré que deux états proches sont potentiellement proche dans le temps
 	for i=1, #list_im do
 		value=tensor[i][3]
-		for j=i+1, #list_im do
-			if value==tensor[j][3] then
-				table.insert(associated_images.im1,list_im[i])
-				table.insert(associated_images.im2,list_im[j])
-				table.insert(associated_images.im3,'')
-				table.insert(associated_images.im4,'')
-				table.insert(associated_images.Mode,'Temp')
-			elseif value==(-1)*tensor[j][3] then
-				table.insert(associated_images.im1,list_im[j])
-				table.insert(associated_images.im2,list_im[i])
-				table.insert(associated_images.im3,'')
-				table.insert(associated_images.im4,'')
-				table.insert(associated_images.Mode,'Temp')
-			end	
-		end
-
--- we add every two images which are temporaly correlated
--- it might add associated images that already linked before but it's not a problem
---because we don't have a lot of images for temporal coherence.
-		if i<#list_im-1 then
-			table.insert(associated_images.im1,list_im[i])
-			table.insert(associated_images.im2,list_im[i+1])
-			table.insert(associated_images.im3,'')
-			table.insert(associated_images.im4,'')
-			table.insert(associated_images.Mode,'Temp')
-		end
-	
+		table.insert(images.joint,value)
+		table.insert(images.im,list_im[i])
 	end
- -- PROP
-	for i=1, #list_im-1 do
-		value=tensor[i][3]
-		for j=i+1, #list_im do
-			delta=value-tensor[j][3]
-			--print("delta : "..delta)
-			--print("im1 : "..list_im[i])
-			--print("im1 : "..list_im[j])
-			for l=i, #list_im do
-				value2=tensor[l][3]
-				for m=l+1, #list_im do
-					delta2=value2-tensor[m][3]
-					if (l~=i or m~=j) and (delta==delta2) and delta~=0 then
-						table.insert(associated_images.im1,list_im[i])
-						table.insert(associated_images.im2,list_im[j])
-						table.insert(associated_images.im3,list_im[l])
-						table.insert(associated_images.im4,list_im[m])
-						table.insert(associated_images.Mode,'Prop')
-					elseif delta==(-1)*delta2 and delta~=0 then
-						table.insert(associated_images.im1,list_im[i])
-						table.insert(associated_images.im2,list_im[j])
-						table.insert(associated_images.im3,list_im[m])
-						table.insert(associated_images.im4,list_im[l])
-						table.insert(associated_images.Mode,'Prop')
-					end
-
-					
-				end
-			end
-	
-		end
-	
-	end
-
---[[
-	for i=1, #associated_images.Mode do
-		print('im1 : '..associated_images.im1[i])
-		print('im2 : '..associated_images.im2[i])
-		print('im3 : '..associated_images.im3[i])
-		print('im4 : '..associated_images.im4[i])
-		print('Mode : '..associated_images.Mode[i])
-	end
---]]
-print("Nombre d'association : "..#associated_images.Mode)
-return associated_images
+	return images
 end

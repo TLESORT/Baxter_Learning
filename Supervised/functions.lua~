@@ -41,17 +41,20 @@ end
 
 function Print_performance(Model,list1, epoch)
 		local list_out1={}
-		for i=1, #list1 do
-			image1=getImage(list1[i])
+		local list_truth={}
+		for i=1, #list1.im do
+			image1=getImage(list1.im[i])
 
 			local Data1=image1:cuda()
 
 			Model:forward(Data1)
 			local State1=Model.output[1]		
-				
+			print(State1)
+			print(list1.joint[i])
 			table.insert(list_out1,State1*1000)
+			table.insert(list_truth,list1.joint[i]*1000)
 		end
-		show_figure(list_out1, epoch)
+		show_figure(list_out1,list_truth, epoch)
 end
 
 function getImage(im)
@@ -61,16 +64,18 @@ function getImage(im)
 	return preprocessing(img1_rsz)
 end
 
-function show_figure(list_out1, epoch)
+function show_figure(list_out1,list_truth, epoch)
 	-- log results to files
 	accLogger = optim.Logger('./Log/state'..epoch..'.log')
 
 	for i=1, #list_out1 do
 	-- update logger
-		accLogger:add{['out1'] = list_out1[i]}
+		print("yo"..list_out1[i])
+		print("you"..list_truth[i])
+		accLogger:add{['out1'] = list_out1[i], ['truth'] = list_truth[i]}
 	end
 	-- plot logger
-	accLogger:style{['Representation*1000'] = '-'}
+	accLogger:style{['out1'] = '-', ['truth'] = '-'}
 	accLogger:plot()
 end
 
@@ -79,18 +84,15 @@ end
 -- Input (im_list): list to shuffle
 -- Output : The previous list after shuffling
 ---------------------------------------------------------------------------------------
-function shuffleDataList(im_list)
+function shuffleList(im_list)
 	local rand = math.random 
-	local iterations = #im_list.Mode
+	local iterations = #im_list.im
 	local j
 
 	for i = iterations, 2, -1 do
 		j = rand(i)
-		im_list.im1[i], im_list.im1[j] = im_list.im1[j], im_list.im1[i]
-		im_list.im2[i], im_list.im2[j] = im_list.im2[j], im_list.im2[i]
-		im_list.im3[i], im_list.im3[j] = im_list.im3[j], im_list.im3[i]
-		im_list.im4[i], im_list.im4[j] = im_list.im4[j], im_list.im4[i]
-		im_list.Mode[i], im_list.Mode[j]=im_list.Mode[j],im_list.Mode[i]
+		im_list.im[i], im_list.im[j] = im_list.im[j], im_list.im[i]
+		im_list.joint[i], im_list.joint[j] = im_list.joint[j], im_list.joint[i]
 	end
 	return im_list
 end

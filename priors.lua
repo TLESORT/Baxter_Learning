@@ -114,6 +114,8 @@ function doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
 	GradS3=GradOutputs3[1]*loss2+GradS[2]*loss
 	GradS4=loss2*GradOutputs3[2]
 
+	--print(GradS4)
+
 	-- calculer les gradients pour les deux images
 	Model:backward(im1, GradS1)
 	Model2:backward(im2,GradS2)

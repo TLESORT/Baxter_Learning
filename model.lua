@@ -11,6 +11,7 @@ function getModel(image_width,image_height)
 	Timnet:add(nn.ReLU())
 	Timnet:add(nn.SpatialConvolution(nbFilter, nbFilter, 3, 3))
 	Timnet:add(nn.ReLU())
+	Timnet:add(nn.Unsqueeze(1,3))
 	--Timnet:add(nn.SpatialBatchNormalization(nbFilter))
 	Timnet:add(nn.SpatialMaxPooling(2,2,2,2))
 
