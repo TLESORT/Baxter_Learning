@@ -101,7 +101,8 @@ end
 -- A modifier on a rassemblé les images par joint et pas par delta....
 
 function create_Head_Training_list(list_im, txt)
-	 local associated_images={im1={},im2={},im3={},im4={},Mode={}}
+	 local associated_images_Prop={im1={},im2={},im3={},im4={},Mode={}}
+	 local associated_images_Temp={im1={},im2={},im3={},im4={},Mode={}}
 
 	tensor, label=tensorFromTxt(txt)
 
@@ -118,17 +119,17 @@ function create_Head_Training_list(list_im, txt)
 		value=tensor[i][3]
 		for j=i+1, #list_im do
 			if value==tensor[j][3] then
-				table.insert(associated_images.im1,list_im[i])
-				table.insert(associated_images.im2,list_im[j])
-				table.insert(associated_images.im3,'')
-				table.insert(associated_images.im4,'')
-				table.insert(associated_images.Mode,'Temp')
+				table.insert(associated_images_Temp.im1,list_im[i])
+				table.insert(associated_images_Temp.im2,list_im[j])
+				table.insert(associated_images_Temp.im3,'')
+				table.insert(associated_images_Temp.im4,'')
+				table.insert(associated_images_Temp.Mode,'Temp')
 			elseif value==(-1)*tensor[j][3] then
-				table.insert(associated_images.im1,list_im[j])
-				table.insert(associated_images.im2,list_im[i])
-				table.insert(associated_images.im3,'')
-				table.insert(associated_images.im4,'')
-				table.insert(associated_images.Mode,'Temp')
+				table.insert(associated_images_Temp.im1,list_im[j])
+				table.insert(associated_images_Temp.im2,list_im[i])
+				table.insert(associated_images_Temp.im3,'')
+				table.insert(associated_images_Temp.im4,'')
+				table.insert(associated_images_Temp.Mode,'Temp')
 			end	
 		end
 
@@ -136,11 +137,11 @@ function create_Head_Training_list(list_im, txt)
 -- it might add associated images that already linked before but it's not a problem
 --because we don't have a lot of images for temporal coherence.
 		if i<#list_im-1 then
-			table.insert(associated_images.im1,list_im[i])
-			table.insert(associated_images.im2,list_im[i+1])
-			table.insert(associated_images.im3,'')
-			table.insert(associated_images.im4,'')
-			table.insert(associated_images.Mode,'Temp')
+			table.insert(associated_images_Temp.im1,list_im[i])
+			table.insert(associated_images_Temp.im2,list_im[i+1])
+			table.insert(associated_images_Temp.im3,'')
+			table.insert(associated_images_Temp.im4,'')
+			table.insert(associated_images_Temp.Mode,'Temp')
 		end
 	
 	end
@@ -157,17 +158,17 @@ function create_Head_Training_list(list_im, txt)
 				for m=l+1, #list_im do
 					delta2=value2-tensor[m][3]
 					if (l~=i or m~=j) and (delta==delta2) and delta~=0 then
-						table.insert(associated_images.im1,list_im[i])
-						table.insert(associated_images.im2,list_im[j])
-						table.insert(associated_images.im3,list_im[l])
-						table.insert(associated_images.im4,list_im[m])
-						table.insert(associated_images.Mode,'Prop')
+						table.insert(associated_images_Prop.im1,list_im[i])
+						table.insert(associated_images_Prop.im2,list_im[j])
+						table.insert(associated_images_Prop.im3,list_im[l])
+						table.insert(associated_images_Prop.im4,list_im[m])
+						table.insert(associated_images_Prop.Mode,'Prop')
 					elseif delta==(-1)*delta2 and delta~=0 then
-						table.insert(associated_images.im1,list_im[i])
-						table.insert(associated_images.im2,list_im[j])
-						table.insert(associated_images.im3,list_im[m])
-						table.insert(associated_images.im4,list_im[l])
-						table.insert(associated_images.Mode,'Prop')
+						table.insert(associated_images_Prop.im1,list_im[i])
+						table.insert(associated_images_Prop.im2,list_im[j])
+						table.insert(associated_images_Prop.im3,list_im[m])
+						table.insert(associated_images_Prop.im4,list_im[l])
+						table.insert(associated_images_Prop.Mode,'Prop')
 					end
 
 					
@@ -187,6 +188,6 @@ function create_Head_Training_list(list_im, txt)
 		print('Mode : '..associated_images.Mode[i])
 	end
 --]]
-print("Nombre d'association : "..#associated_images.Mode)
-return associated_images
+print("Nombre d'association : "..#associated_images_Prop.Mode+#associated_images_Temp.Mode)
+return associated_images_Prop, associated_images_Temp
 end

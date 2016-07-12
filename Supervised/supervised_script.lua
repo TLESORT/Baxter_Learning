@@ -61,8 +61,8 @@ end
 --load the two images
 function train_epoch(Model, list_folders_images, list_txt)
 	
-	local list_t=images_Paths(list_folders_images[2])
-	list_1=create_Im_Training_list(list_t, list_txt[2])
+	local list_t=images_Paths(list_folders_images[1])
+	list_1=create_Im_Training_list(list_t, list_txt[1])
 	nbEpoch=30
 	for epoch=1, nbEpoch do
 		
@@ -74,8 +74,8 @@ function train_epoch(Model, list_folders_images, list_txt)
 		nbList= #list_folders_images
 		
 		-- for each list (ie : each list of images in a folder)
-		nbList=2
-		for l=2,nbList do
+		nbList=1
+		for l=1,nbList do
 			list_im=images_Paths(list_folders_images[l])
 			list=create_Im_Training_list(list_im, list_txt[l])
 			--list=shuffleList(list)

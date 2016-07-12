@@ -71,7 +71,7 @@ end
 --load the two images
 function train_epoch(Model, list_folders_images, list_txt)
 	
-	local list_t=images_Paths(list_folders_images[2])
+	local list_t=images_Paths(list_folders_images[1])
 	nbEpoch=10
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
@@ -82,7 +82,7 @@ function train_epoch(Model, list_folders_images, list_txt)
 		
 		for l=1,nbList do
 			--list=images_Paths(list_folders_images[l])
-			list_Prop, list_Temp=create_Head_Training_list(images_Paths(list_folders_images[2]), list_txt[1])
+			list_Prop, list_Temp=create_Head_Training_list(images_Paths(list_folders_images[l]), list_txt[l])
 			NbPass=#list_Prop.Mode+#list_Temp.Mode
 			--NbPass=20
 			for k=1, NbPass do
@@ -98,7 +98,7 @@ function train_epoch(Model, list_folders_images, list_txt)
 				im4=getImage(list_Prop.im4[i])
 				--image.display{image=({im1,im2,im3,im4}), zoom=1}
 				Rico_Training(Model, 'Prop',im1, im2,im3,im4)
-				Rico_Training(Model,'Rep',im1,im2,im3,im4)
+				--Rico_Training(Model,'Rep',im1,im2,im3,im4)
 
 				xlua.progress(k, NbPass)
 			end

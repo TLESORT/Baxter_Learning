@@ -16,8 +16,8 @@ require 'priors'
 
 function Rico_Training(Model, Mode,image1, image2, image3, image4)
 	local LR=0.01
-	local mom=0.9
-        local coefL2=0,5
+	local mom=0.0
+        local coefL2=0,0
 	local criterion=nn.MSDCriterion()
 	criterion=criterion:cuda()
 	
