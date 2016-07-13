@@ -39,6 +39,32 @@ function preprocessing(im)
 	return data
 end
 
+function getBatch(list, indice, lenght, width, height, Type)
+	
+	if (indice+1)*lenght<#list.im1 then
+		start=indice*lenght
+	else
+		start=#list.im1-lenght
+	end
+	if Type=="Prop" then
+		Batch=torch.Tensor(4, lenght,3, width, height)
+	else
+		Batch=torch.Tensor(2, lenght,3, width, height)
+	end
+	
+	for i=1, lenght do
+		Batch[1][i]=getImage(list.im1[start+i])
+		Batch[2][i]=getImage(list.im2[start+i])
+		if Type=="Prop" then
+			Batch[3][i]=getImage(list.im3[start+i])
+			Batch[4][i]=getImage(list.im4[start+i])
+		end
+	end
+
+	return Batch
+
+end
+
 function Print_performance(Model,list1, epoch)
 		local list_out1={}
 		for i=1, #list1 do
@@ -55,7 +81,7 @@ function Print_performance(Model,list1, epoch)
 end
 
 function getImage(im)
-
+	if im=='' or im==nil then return nil end
 	local image1=image.load(im,3,'byte')
 	local img1_rsz=image.scale(image1,"200x200")
 	return preprocessing(img1_rsz)

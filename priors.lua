@@ -1,7 +1,11 @@
-function doStuff_temp(Model,criterion, gradParameters,im1,im2)
+function doStuff_temp(Models,criterion, gradParameters,Batch)
+
+	im1=Batch[{1,{},{},{},{}}]:cuda()
+	im2=Batch[{2,{},{},{},{}}]:cuda()
 	
-	Model2=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
+	Model=Models.Model1
+	Model2=Models.Model2
+
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
 	loss=criterion:forward({State1,State2})
@@ -13,10 +17,11 @@ function doStuff_temp(Model,criterion, gradParameters,im1,im2)
 	return loss, gradParameters
 end
 
-function doStuff_Caus(Model,criterion, gradParameters,im1,im2)
+function doStuff_Caus(Models,criterion, gradParameters,im1,im2)
 	
-	Model2=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
+	Model=Models.Model1
+	Model2=Models.Model2
+
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
 	loss=criterion:forward({State1,State2})
@@ -28,14 +33,17 @@ function doStuff_Caus(Model,criterion, gradParameters,im1,im2)
 	return math.exp(-loss), gradParameters
 end
 
-function doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)
+function doStuff_Prop(Models,criterion,gradParameters,Batch)
 
-	Model2=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
-	Model3=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
-	Model4=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
+	im3=Batch[3]:cuda()
+	im4=Batch[4]:cuda()
+
+	Model=Models.Model1
+	Model2=Models.Model2
+	Model3=Models.Model3
+	Model4=Models.Model4
 
 
 	State1=Model:forward(im1)
@@ -71,14 +79,17 @@ function doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)
 	return loss, gradParameters
 end
 
-function doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
+function doStuff_Rep(Models,criterion,gradParameters,Batch)
 
-	Model2=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
-	Model3=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
-	Model4=Model:clone('weight','bias','gradWeight',
-			'gradBias','running_mean','running_std')
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
+	im3=Batch[3]:cuda()
+	im4=Batch[4]:cuda()
+
+	Model=Models.Model1
+	Model2=Models.Model2
+	Model3=Models.Model3
+	Model4=Models.Model4
 
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
@@ -100,6 +111,7 @@ function doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
 	loss=criterion:forward({delta1,delta2})
 	loss2=criterion2:forward({State1,State3})
 	loss2=math.exp(-loss2)
+	print(loss2)
 
 	-- BACKWARD
 

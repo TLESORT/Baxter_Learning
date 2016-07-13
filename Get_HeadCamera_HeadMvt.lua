@@ -46,7 +46,7 @@ function Get_Folders(Path, including, excluding,list)
 end
 
 function Get_HeadCamera_HeadMvt()
-	local Path="/home/lesort/baxter/original_data/"
+	local Path=paths.home.."/baxter/original_data/"
 
 	local Paths=Get_Folders(Path,'2016' .. '$')
 	list={}

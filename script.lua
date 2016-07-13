@@ -14,7 +14,7 @@ require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
-function Rico_Training(Model, Mode,image1, image2, image3, image4)
+function Rico_Training(Models, Mode,image1, image2, image3, image4)
 	local LR=0.01
 	local mom=0.0
         local coefL2=0,0
@@ -26,7 +26,7 @@ function Rico_Training(Model, Mode,image1, image2, image3, image4)
 	if image3 then im3=image3:cuda() end
 	if image4 then im4=image4:cuda() end
 
-	parameters,gradParameters = Model:getParameters()
+	parameters,gradParameters = Models.Model1:getParameters()
 
 	      -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
@@ -44,15 +44,15 @@ function Rico_Training(Model, Mode,image1, image2, image3, image4)
 
 	if Mode=='Simpl' then print("Simpl")
 	elseif Mode=='Temp' then
-	     loss,gradParameters=doStuff_temp(Model,criterion,gradParameters, im1,im2)
+	     loss,gradParameters=doStuff_temp(Models,criterion,gradParameters, im1,im2)
 	elseif Mode=='Prop' then
-	     loss,gradParameters=doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)	
+	     loss,gradParameters=doStuff_Prop(Models,criterion,gradParameters,im1,im2,im3,im4)	
 	elseif Mode=='Caus' then 
 	     --coefL2=0.5  -- unstable in other case
-	     loss,gradParameters=doStuff_Caus(Model,criterion,gradParameters,im1,im2,im3,im4)
+	     loss,gradParameters=doStuff_Caus(Models,criterion,gradParameters,im1,im2,im3,im4)
 	elseif Mode=='Rep' then
 	     --coefL2=1  -- unstable in other case
-	     loss,gradParameters=doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
+	     loss,gradParameters=doStuff_Rep(Models,criterion,gradParameters,im1,im2,im3,im4)
 	else print("Wrong Mode")
 	end
          return loss,gradParameters
@@ -72,8 +72,8 @@ end
 
 
 --load the two images
-function train_epoch(Model, list_folders_images, list_txt)
-	
+function train_epoch(Models, list_folders_images, list_txt)
+	local BatchSize=5
 	local list_t=images_Paths(list_folders_images[2])
 	nbEpoch=10
 	for epoch=1, nbEpoch do
@@ -86,34 +86,32 @@ function train_epoch(Model, list_folders_images, list_txt)
 		for l=1,nbList do
 			--list=images_Paths(list_folders_images[l])
 			list_Prop, list_Temp=create_Head_Training_list(images_Paths(list_folders_images[2]), list_txt[1])
-			NbPass=#list_Prop.Mode+#list_Temp.Mode
+			NbPass=#list_Prop.Mode+#list_Temp.Mode	
+			
 			--NbPass=20
-			for k=1, NbPass do
-				i=math.random(1,#list_Temp.Mode)
-				im1=getImage(list_Temp.im1[i])
-				im2=getImage(list_Temp.im2[i])
-				Rico_Training(Model, 'Temp',im1, im2)
+			NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
+			for numBatch=1, NbBatch do
+				Batch_Temp=getBatch(list_Temp, numBatch, BatchSize, 200, 200,"Temp")
+				Batch_Prop=getBatch(list_Prop, numBatch, BatchSize, 200, 200,"Prop")
 
-				i=math.random(1,#list_Prop.Mode)
-				im1=getImage(list_Prop.im1[i])
-				im2=getImage(list_Prop.im2[i])
-				im3=getImage(list_Prop.im3[i])
-				im4=getImage(list_Prop.im4[i])
+				Rico_Training(Models, 'Temp',Batch)
+
+				
 				--image.display{image=({im1,im2,im3,im4}), zoom=1}
-				Rico_Training(Model, 'Prop',im1, im2,im3,im4)
-				Rico_Training(Model,'Rep',im1,im2,im3,im4)
+				Rico_Training(Models, 'Prop',Batch_Prop)
+				Rico_Training(Models,'Rep',Batch_Prop)
 
-				xlua.progress(k, NbPass)
+				xlua.progress(numBatch, NbBatch)
 			end
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Model,'./Save/Save07_07.t7')
-		Print_performance(Model,list_t,epoch)
+		save_model(Models.Model1,'./Save/Save07_07.t7')
+		Print_performance(Models.Model1,list_t,epoch)
 	end
 end
 
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
-local reload=true
+local reload=false
 
 local image_width=200
 local image_height=200
@@ -121,12 +119,17 @@ local image_height=200
 if reload then
 	Model = torch.load('./Save/Save07_07.t7'):double()
 else
-	require "mini_model"
+	require "./models/mini_model"
 	Model=getModel(image_width,image_height)	
 end
 Model=Model:cuda()
+Model2=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+Model3=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
 
-train_epoch(Model, list_folders_images, list_txt)
+Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
+
+train_epoch(Models, list_folders_images, list_txt)
 
 --print(list_folders_images[1])
 --list_t=images_Paths(list_folders_images[1])

@@ -6,7 +6,8 @@ function getModel(image_width,image_height)
 	nbFilter=64
 
 	Timnet = nn.Sequential()
-	Timnet:add(nn.SpatialConvolution(3, nbFilter, 3, 3))
+	Timnet:add(nn.SpatialConvolution(3, nbFilter, 3, 3))	
+	Timnet:add(nn.Unsqueeze(1,3))
 	Timnet:add(nn.SpatialBatchNormalization(nbFilter))
 	Timnet:add(nn.ReLU())
 	Timnet:add(nn.SpatialMaxPooling(2,2,2,2,1,1))
