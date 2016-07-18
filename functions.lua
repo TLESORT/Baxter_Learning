@@ -7,14 +7,15 @@ function save_model(model,path)
 	torch.save(path,model)
 end
 
-function preprocessing(im)
+function preprocessing(im, SpacialNormalization)
+
+	local SpacialNormalization= SpacialNormalization or true
 		-- Name channels for convenience
 	local channels = {'y','u','v'}
 	local mean = {}
 	local std = {}
 	data = torch.Tensor( 3, 200, 200)
-	  data:copy(im)
-	--image.display{image=batch.data, legend='Avant'}
+	data:copy(im)
 	for i,channel in ipairs(channels) do
 	   -- normalize each channel globally:
 	   mean[i] = data[i]:mean()
@@ -22,24 +23,25 @@ function preprocessing(im)
 	   data[{i,{},{}}]:add(-mean[i])
 	   data[{i,{},{}}]:div(std[i])
 	end
-	--image.display{image=batch.data, legend='Après'}
 
 	--preprocessing data: normalize all three channels locally----------------
+	if SpacialNormalization then
+		-- Define the normalization neighborhood:
+		local neighborhood = image.gaussian1D(5) -- 5 for face detector training
 
-	-- Define the normalization neighborhood:
-	local neighborhood = image.gaussian1D(5) -- 5 for face detector training
+		-- Define our local normalization operator
+		local normalization = nn.SpatialContrastiveNormalization(1, neighborhood, 1e-4)
 
-	-- Define our local normalization operator
-	local normalization = nn.SpatialContrastiveNormalization(1, neighborhood, 1e-4)
-
-	-- Normalize all channels locally:
-	for c in ipairs(channels) do
-	      data[{{c},{},{} }] = normalization:forward(data[{{c},{},{} }])
+		-- Normalize all channels locally:
+		for c in ipairs(channels) do
+		      data[{{c},{},{} }] = normalization:forward(data[{{c},{},{} }])
+		end
 	end
 	return data
 end
 
-function getBatch(list, indice, lenght, width, height, Type)
+-- this function search the indice of associated images and take the corresponding images in imgs which are the loaded images of the folder
+function getBatch(imgs, list, indice, lenght, width, height, Type)
 	
 	if (indice+1)*lenght<#list.im1 then
 		start=indice*lenght
@@ -53,11 +55,11 @@ function getBatch(list, indice, lenght, width, height, Type)
 	end
 	
 	for i=1, lenght do
-		Batch[1][i]=getImage(list.im1[start+i])
-		Batch[2][i]=getImage(list.im2[start+i])
+		Batch[1][i]=imgs[list.im1[start+i]]
+		Batch[2][i]=imgs[list.im2[start+i]]
 		if Type=="Prop" then
-			Batch[3][i]=getImage(list.im3[start+i])
-			Batch[4][i]=getImage(list.im4[start+i])
+			Batch[3][i]=imgs[list.im3[start+i]]
+			Batch[4][i]=imgs[list.im4[start+i]]
 		end
 	end
 
@@ -65,13 +67,15 @@ function getBatch(list, indice, lenght, width, height, Type)
 
 end
 
-function Print_performance(Model,list1, epoch)
+function Print_performance(Model,imgs, epoch)
 		local list_out1={}
-		for i=1, #list1 do
-			image1=getImage(list1[i])
-
+		for i=1, #imgs do
+			image1=imgs[i]
 			local Data1=image1:cuda()
-
+			ForthD= nn.Sequential()
+			ForthD:add(nn.Unsqueeze(1,3))
+			ForthD=ForthD:cuda()
+			Data1=ForthD:forward(Data1)
 			Model:forward(Data1)
 			local State1=Model.output[1]		
 				
@@ -80,11 +84,19 @@ function Print_performance(Model,list1, epoch)
 		show_figure(list_out1, epoch)
 end
 
-function getImage(im)
+function load_list(list)
+	im={}
+	for i=1, #list do
+		table.insert(im,getImage(list[i], false))
+	end 
+	return im
+end
+
+function getImage(im, SpacialNormalization)
 	if im=='' or im==nil then return nil end
 	local image1=image.load(im,3,'byte')
 	local img1_rsz=image.scale(image1,"200x200")
-	return preprocessing(img1_rsz)
+	return preprocessing(img1_rsz, SpacialNormalization)
 end
 
 function show_figure(list_out1, epoch)

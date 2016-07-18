@@ -1,7 +1,7 @@
 function doStuff_temp(Models,criterion, gradParameters,Batch)
 
-	im1=Batch[{1,{},{},{},{}}]:cuda()
-	im2=Batch[{2,{},{},{},{}}]:cuda()
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
 	
 	Model=Models.Model1
 	Model2=Models.Model2
@@ -17,7 +17,10 @@ function doStuff_temp(Models,criterion, gradParameters,Batch)
 	return loss, gradParameters
 end
 
-function doStuff_Caus(Models,criterion, gradParameters,im1,im2)
+function doStuff_Caus(Models,criterion, gradParameters,Batch)
+
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
 	
 	Model=Models.Model1
 	Model2=Models.Model2
@@ -111,7 +114,6 @@ function doStuff_Rep(Models,criterion,gradParameters,Batch)
 	loss=criterion:forward({delta1,delta2})
 	loss2=criterion2:forward({State1,State3})
 	loss2=math.exp(-loss2)
-	print(loss2)
 
 	-- BACKWARD
 

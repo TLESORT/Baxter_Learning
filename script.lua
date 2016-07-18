@@ -14,17 +14,12 @@ require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
-function Rico_Training(Models, Mode,image1, image2, image3, image4)
+function Rico_Training(Models, Mode,batch)
 	local LR=0.01
 	local mom=0.0
         local coefL2=0,0
 	local criterion=nn.MSDCriterion()
 	criterion=criterion:cuda()
-	
-	if image1 then im1=image1:cuda() end
-	if image2 then im2=image2:cuda() end
-	if image3 then im3=image3:cuda() end
-	if image4 then im4=image4:cuda() end
 
 	parameters,gradParameters = Models.Model1:getParameters()
 
@@ -44,15 +39,15 @@ function Rico_Training(Models, Mode,image1, image2, image3, image4)
 
 	if Mode=='Simpl' then print("Simpl")
 	elseif Mode=='Temp' then
-	     loss,gradParameters=doStuff_temp(Models,criterion,gradParameters, im1,im2)
+	     loss,gradParameters=doStuff_temp(Models,criterion,gradParameters, batch)
 	elseif Mode=='Prop' then
-	     loss,gradParameters=doStuff_Prop(Models,criterion,gradParameters,im1,im2,im3,im4)	
+	     loss,gradParameters=doStuff_Prop(Models,criterion,gradParameters,batch)	
 	elseif Mode=='Caus' then 
 	     --coefL2=0.5  -- unstable in other case
-	     loss,gradParameters=doStuff_Caus(Models,criterion,gradParameters,im1,im2,im3,im4)
+	     loss,gradParameters=doStuff_Caus(Models,criterion,gradParameters,batch)
 	elseif Mode=='Rep' then
 	     --coefL2=1  -- unstable in other case
-	     loss,gradParameters=doStuff_Rep(Models,criterion,gradParameters,im1,im2,im3,im4)
+	     loss,gradParameters=doStuff_Rep(Models,criterion,gradParameters,batch)
 	else print("Wrong Mode")
 	end
          return loss,gradParameters
@@ -84,15 +79,14 @@ function train_epoch(Models, list_folders_images, list_txt)
 		nbList=1-------------------------------!!!!----------------
 		
 		for l=1,nbList do
-			--list=images_Paths(list_folders_images[l])
-			list_Prop, list_Temp=create_Head_Training_list(images_Paths(list_folders_images[2]), list_txt[1])
-			NbPass=#list_Prop.Mode+#list_Temp.Mode	
-			
-			--NbPass=20
+			list=images_Paths(list_folders_images[l])
+			imgs=load_list(list)
+			list_Prop, list_Temp=create_Head_Training_list(list, list_txt[1])
+			NbPass=#list_Prop.Mode+#list_Temp.Mode
 			NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
 			for numBatch=1, NbBatch do
-				Batch_Temp=getBatch(list_Temp, numBatch, BatchSize, 200, 200,"Temp")
-				Batch_Prop=getBatch(list_Prop, numBatch, BatchSize, 200, 200,"Prop")
+				Batch_Temp=getBatch(imgs,list_Temp, numBatch, BatchSize, 200, 200,"Temp")
+				Batch_Prop=getBatch(imgs,list_Prop, numBatch, BatchSize, 200, 200,"Prop")
 
 				Rico_Training(Models, 'Temp',Batch)
 
@@ -106,7 +100,7 @@ function train_epoch(Models, list_folders_images, list_txt)
 			xlua.progress(l, #list_folders_images)
 		end
 		save_model(Models.Model1,'./Save/Save07_07.t7')
-		Print_performance(Models.Model1,list_t,epoch)
+		Print_performance(Models.Model1,imgs,epoch)
 	end
 end
 

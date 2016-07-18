@@ -1,4 +1,8 @@
-function doStuff_temp(Model,criterion, gradParameters,im1, im2)
+function doStuff_temp(Model,criterion, gradParameters,Batch)
+
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
+
 	State2=Model:forward(im2):clone()--should be before State1
 	State1=Model:forward(im1)
 	loss=criterion:forward({State1,State2})
@@ -9,7 +13,10 @@ function doStuff_temp(Model,criterion, gradParameters,im1, im2)
 	return loss, gradParameters
 end
 
-function doStuff_Caus(Model,criterion, gradParameters,im1,im2)
+function doStuff_Caus(Model,criterion, gradParameters,Batch)
+
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
 	
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
@@ -21,7 +28,12 @@ function doStuff_Caus(Model,criterion, gradParameters,im1,im2)
 	return math.exp(-loss), gradParameters
 end
 
-function doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)
+function doStuff_Prop(Model,criterion,gradParameters,Batch)
+
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
+	im3=Batch[3]:cuda()
+	im4=Batch[4]:cuda()
 
 	State2=Model:forward(im2):clone()
 	State3=Model:forward(im3):clone()
@@ -49,8 +61,12 @@ function doStuff_Prop(Model,criterion,gradParameters,im1,im2,im3,im4)
 	return loss, gradParameters
 end
 
-function doStuff_Rep(Model,criterion,gradParameters,im1,im2,im3,im4)
+function doStuff_Rep(Model,criterion,gradParameters,Batch)
 
+	im1=Batch[1]:cuda()
+	im2=Batch[2]:cuda()
+	im3=Batch[3]:cuda()
+	im4=Batch[4]:cuda()
 
 	State2=Model:forward(im2):clone()
 	State3=Model:forward(im3):clone()
