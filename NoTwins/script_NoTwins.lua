@@ -80,7 +80,7 @@ function train_epoch(Model, list_folders_images, list_txt)
 			imgs=load_list(list)
 			list_Prop, list_Temp=create_Head_Training_list(list, list_txt[l])
 			NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
-
+			NbBatch=10*10*10
 			for numBatch=1, NbBatch do
 				i=math.random(1,#list_Temp.Mode)
 				Batch_Temp=getBatch(imgs,list_Temp, i, BatchSize, 200, 200,"Temp")
@@ -94,19 +94,19 @@ function train_epoch(Model, list_folders_images, list_txt)
 			end
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Model,'../Save/SaveNoTwins08_07.t7')
+		save_model(Model,'../Save/SaveNoTwins18_07.t7')
 		Print_performance(Model,imgs,epoch)
 	end
 end
 
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
-local reload=false
+local reload=true
 
 local image_width=200
 local image_height=200
 
 if reload then
-	Model = torch.load('./Save/SaveNoTwins08_07.t7'):double()
+	Model = torch.load('../Save/SaveNoTwins08_07.t7'):double()
 else
 	require "../models/mini_model"
 	Model=getModel(image_width,image_height)	

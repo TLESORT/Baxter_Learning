@@ -1,9 +1,6 @@
 -- Based on JoinTable module
 
 require 'nn'
-print('hello')
-
-print(nn)
 
 local Sampler, parent = torch.class('nn.Sampler', 'nn.Module')
 

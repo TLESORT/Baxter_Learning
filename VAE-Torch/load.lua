@@ -17,7 +17,6 @@ function loadmnist()
     data = {}
     data.train = f:read('x_train'):all():double()
     data.test = f:read('x_test'):all():double()
-
     f:close()
 
     return data

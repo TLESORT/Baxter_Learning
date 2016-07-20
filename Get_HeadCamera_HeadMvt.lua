@@ -122,12 +122,6 @@ function create_Head_Training_list(list_im, txt)
 				table.insert(associated_images_Temp.im3,0)
 				table.insert(associated_images_Temp.im4,0)
 				table.insert(associated_images_Temp.Mode,'Temp')
-			elseif value==(-1)*tensor[j][3] then
-				table.insert(associated_images_Temp.im1,j)
-				table.insert(associated_images_Temp.im2,i)
-				table.insert(associated_images_Temp.im3,0)
-				table.insert(associated_images_Temp.im4,0)
-				table.insert(associated_images_Temp.Mode,'Temp')
 			end	
 		end
 
@@ -137,6 +131,13 @@ function create_Head_Training_list(list_im, txt)
 		if i<#list_im-1 then
 			table.insert(associated_images_Temp.im1,i)
 			table.insert(associated_images_Temp.im2,i+1)
+			table.insert(associated_images_Temp.im3,0)
+			table.insert(associated_images_Temp.im4,0)
+			table.insert(associated_images_Temp.Mode,'Temp')
+
+				--not the same for no-twins learning			
+			table.insert(associated_images_Temp.im1,i+1)
+			table.insert(associated_images_Temp.im2,i)
 			table.insert(associated_images_Temp.im3,0)
 			table.insert(associated_images_Temp.im4,0)
 			table.insert(associated_images_Temp.Mode,'Temp')
