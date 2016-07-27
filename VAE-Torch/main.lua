@@ -7,7 +7,7 @@ require 'image'
 
 nngraph.setDebug(false)
 
-local VAE = require 'VAE'
+local VAE = require 'VAE_conv'
 require 'KLDCriterion'
 require 'GaussianCriterion'
 require 'Sampler2'
@@ -18,20 +18,23 @@ require 'load'
 require '../functions.lua'
 require "../Get_HeadCamera_HeadMvt"
 
-local continuous = false
+local continuous = true
 --data = load(continuous)
 
 list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 
 
-local batch_size = 2
+batch_size = 2
+ height=100
+ lenght=100
+channel=1
 
 torch.manualSeed(1)
 
-local input_size = 200*200*3
+local input_size = height*lenght*channel
 --local input_size = data.train:size(2)
-local latent_variable_size = 100
-local hidden_layer_size = 10000
+local latent_variable_size = 30
+local hidden_layer_size = 900
 
 local encoder = VAE.get_encoder(input_size, hidden_layer_size, latent_variable_size)
 local decoder = VAE.get_decoder(input_size, hidden_layer_size, latent_variable_size, continuous)
@@ -69,18 +72,20 @@ local config = {
 
 local state = {}
 
-epoch = 0
-for i=1, #list_folders_images do
+local maxEpoch=10
+for epoch = 0, maxEpoch do
+epoch = epoch + 1
+for l=1, #list_folders_images do
 
-	local list=images_Paths(list_folders_images[i])
+	local list=images_Paths(list_folders_images[l])
 
-	img=load_list(list)
+	img=load_list(list,height,lenght)
+
 	data={train={}}
-	for i=1, #img do
-		table.insert(data.train,img[i])
+	for j=1, #img do
+		table.insert(data.train,img[j])
 	end
 
-    epoch = epoch + 1
     local lowerbound = 0
     local tic = torch.tic()
 
@@ -111,12 +116,17 @@ for i=1, #list_folders_images do
             else
                 reconstruction, mean, log_var = unpack(model:forward(inputs))
             end
-if t==1 then
-image.display({image=inputs[1]:resize(3,200,200)})
-image.display({image=reconstruction[1]:resize(3,200,200)})
---image.display({image=inputs[1]:resize(28,28),zoom=4})
---image.display({image=reconstruction[1]:resize(28,28), zoom=4})
+if l%10==1 and t==1 then
+im1=inputs[1]
+im2=torch.Tensor(reconstruction[1]:size())
+im2:copy(reconstruction[1])
+image.display({image=im1:resize(channel,height,lenght), zoom=4})
+image.display({image=im2:resize(channel,height,lenght), zoom=4})
 end
+	
+inputs[1]=inputs[1]:resize(channel,height,lenght)
+inputs[2]=inputs[2]:resize(channel,height,lenght)
+
             local err = criterion:forward(reconstruction, inputs)
             local df_dw = criterion:backward(reconstruction, inputs)
 
@@ -154,4 +164,5 @@ end
         torch.save('save/state.t7', state)
         torch.save('save/lowerbound.t7', torch.Tensor(lowerboundlist))
     end
+end
 end

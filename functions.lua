@@ -7,14 +7,14 @@ function save_model(model,path)
 	torch.save(path,model)
 end
 
-function preprocessing(im, SpacialNormalization)
+function preprocessing(im, lenght, width, SpacialNormalization)
 
 	local SpacialNormalization= SpacialNormalization or true
 		-- Name channels for convenience
 	local channels = {'y','u','v'}
 	local mean = {}
 	local std = {}
-	data = torch.Tensor( 3, 200, 200)
+	data = torch.Tensor( 3, lenght, width)
 	data:copy(im)
 	for i,channel in ipairs(channels) do
 	   -- normalize each channel globally:
@@ -84,19 +84,22 @@ function Print_performance(Model,imgs, epoch)
 		show_figure(list_out1, epoch)
 end
 
-function load_list(list)
+function load_list(list,lenght,height)
 	im={}
+	lenght=lenght or 200
+	height=height or 200
 	for i=1, #list do
-		table.insert(im,getImage(list[i], false))
+		table.insert(im,getImage(list[i],lenght,height, false))
 	end 
 	return im
 end
 
-function getImage(im, SpacialNormalization)
+function getImage(im,length,height,SpacialNormalization)
 	if im=='' or im==nil then return nil end
 	local image1=image.load(im,3,'byte')
-	local img1_rsz=image.scale(image1,"200x200")
-	return preprocessing(img1_rsz, SpacialNormalization)
+	local format=length.."x"..height
+	local img1_rsz=image.scale(image1,format)
+	return preprocessing(img1_rsz,length,height, SpacialNormalization)
 end
 
 function show_figure(list_out1, epoch)

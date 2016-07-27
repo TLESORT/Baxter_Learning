@@ -8,18 +8,26 @@ require 'xlua'
 require 'math'
 require 'string'
 require 'cunn'
+require 'nngraph'
 
 require 'MSDC'
 require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
+require './Autoencoder/noiseModule'
 
-function Rico_Training(Models, Mode,batch)
+
+function copy_weight(model, AE)
+	model:get(1).weight:copy(AE:get(1).weight)
+	model:get(4).weight:copy(AE:get(5).weight)
+	model:get(7).weight:copy(AE:get(8).weight)
+	return model
+end
+
+function Rico_Training(Models, Mode,batch, criterion)
 	local LR=0.01
 	local mom=0.0
         local coefL2=0,0
-	local criterion=nn.MSDCriterion()
-	criterion=criterion:cuda()
 
 	parameters,gradParameters = Models.Model1:getParameters()
 
@@ -36,18 +44,11 @@ function Rico_Training(Models, Mode,batch)
          -- reset gradients
         gradParameters:zero()
 
-
 	if Mode=='Simpl' then print("Simpl")
-	elseif Mode=='Temp' then
-	     loss,gradParameters=doStuff_temp(Models,criterion,gradParameters, batch)
-	elseif Mode=='Prop' then
-	     loss,gradParameters=doStuff_Prop(Models,criterion,gradParameters,batch)	
-	elseif Mode=='Caus' then 
-	     --coefL2=0.5  -- unstable in other case
-	     loss,gradParameters=doStuff_Caus(Models,criterion,gradParameters,batch)
-	elseif Mode=='Rep' then
-	     --coefL2=1  -- unstable in other case
-	     loss,gradParameters=doStuff_Rep(Models,criterion,gradParameters,batch)
+	elseif Mode=='Temp' then loss=doStuff_temp(Models,criterion, batch)
+	elseif Mode=='Prop' then loss=doStuff_Prop(Models,criterion,batch)	
+	elseif Mode=='Caus' then loss=doStuff_Caus(Models,criterion,batch)
+	elseif Mode=='Rep' then loss=doStuff_Rep(Models,criterion,batch)
 	else print("Wrong Mode")
 	end
          return loss,gradParameters
@@ -71,6 +72,11 @@ function train_epoch(Models, list_folders_images, list_txt)
 	local BatchSize=5
 	local list_t=images_Paths(list_folders_images[2])
 	nbEpoch=10
+	local REP_criterion=get_Rep_criterion()
+	local PROP_criterion=get_Prop_criterion()
+	local CAUS_criterion=get_Caus_criterion()
+	local TEMP_criterion=nn.MSDCriterion()
+			
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
 		print(#list_folders_images..' : sequences')
@@ -87,14 +93,9 @@ function train_epoch(Models, list_folders_images, list_txt)
 			for numBatch=1, NbBatch do
 				Batch_Temp=getBatch(imgs,list_Temp, numBatch, BatchSize, 200, 200,"Temp")
 				Batch_Prop=getBatch(imgs,list_Prop, numBatch, BatchSize, 200, 200,"Prop")
-
-				Rico_Training(Models, 'Temp',Batch)
-
-				
-				--image.display{image=({im1,im2,im3,im4}), zoom=1}
-				Rico_Training(Models, 'Prop',Batch_Prop)
-				Rico_Training(Models,'Rep',Batch_Prop)
-
+				Rico_Training(Models, 'Temp',Batch, TEMP_criterion)
+				Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
 				xlua.progress(numBatch, NbBatch)
 			end
 			xlua.progress(l, #list_folders_images)
@@ -106,12 +107,19 @@ end
 
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 local reload=false
+local TakeWeightFromAE=true
 
 local image_width=200
 local image_height=200
 
 if reload then
 	Model = torch.load('./Save/Save07_07.t7'):double()
+elseif TakeWeightFromAE then
+	require "./models/mini_model"
+	Model=getModel(image_width,image_height)
+	AE= torch.load('./Save/AE_3x3.t7'):double()
+	print('AE\n' .. AE:__tostring());
+	Model=copy_weight(Model, AE)
 else
 	require "./models/mini_model"
 	Model=getModel(image_width,image_height)	
@@ -124,8 +132,4 @@ Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','runni
 Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
 
 train_epoch(Models, list_folders_images, list_txt)
-
---print(list_folders_images[1])
---list_t=images_Paths(list_folders_images[1])
---Print_performance(Model,list_t,1)
 

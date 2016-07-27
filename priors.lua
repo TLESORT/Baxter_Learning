@@ -1,4 +1,4 @@
-function doStuff_temp(Models,criterion, gradParameters,Batch)
+function doStuff_temp(Models,criterion,Batch)
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
@@ -8,16 +8,18 @@ function doStuff_temp(Models,criterion, gradParameters,Batch)
 
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
+
+	criterion=criterion:cuda()
 	loss=criterion:forward({State1,State2})
 	GradOutputs=criterion:backward({State1,State2})
 
 	-- calculer les gradients pour les deux images
 	Model:backward(im1,GradOutputs[1])
 	Model2:backward(im2,GradOutputs[2])
-	return loss, gradParameters
+	return loss
 end
 
-function doStuff_Caus(Models,criterion, gradParameters,Batch)
+function doStuff_Caus(Models,criterion,Batch)
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
@@ -27,17 +29,21 @@ function doStuff_Caus(Models,criterion, gradParameters,Batch)
 
 	State1=Model:forward(im1)
 	State2=Model2:forward(im2)
-	loss=criterion:forward({State1,State2})
-	GradOutputs=criterion:backward({State1,State2})
+
+
+	criterion=criterion:cuda()
+	output=criterion:updateOutput({State1, State2})
+
+	--we backward with a starting gradient initialized at 1
+	criterion:updateGradInput({State1, State2}, torch.ones(1))
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,(-1)*GradOutputs[1]*math.exp(-loss))
-	Model2:backward(im2,(-1)*GradOutputs[2]*math.exp(-loss))
-	return math.exp(-loss), gradParameters
+	Model:backward(im1,criterion.gradInput[1])
+	Model2:backward(im2,criterion.gradInput[2])
+	return output
 end
 
-function doStuff_Prop(Models,criterion,gradParameters,Batch)
-
+function doStuff_Prop(Models,criterion,Batch)
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	im3=Batch[3]:cuda()
@@ -55,39 +61,29 @@ function doStuff_Prop(Models,criterion,gradParameters,Batch)
 	State4=Model4:forward(im4)
 
 
-	Module= nn.Sequential()
-	Module:add(nn.CSubTable())
-	Module:add(nn.Square())
-	Module:add(nn.Sum(1))
-	Module=Module:cuda()
+	criterion=criterion:cuda()
+	output=criterion:updateOutput({State1, State2, State3, State4})
 
-	Module2=Module:clone()
-
-	delta1=Module:forward({State1,State2})
-	delta2=Module2:forward({State3,State4})
+	--we backward with a starting gradient initialized at 1
+	criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
 
-	loss=criterion:forward({delta1,delta2})
-
-	GradOutputs=criterion:backward({delta1,delta2})
-
-	GradOutputs2=Module:backward({State1,State2},GradOutputs[1])
-	GradOutputs3=Module2:backward({State3,State4},GradOutputs[2])
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,GradOutputs2[1])
-	Model2:backward(im2,GradOutputs2[2])
-	Model3:backward(im3,GradOutputs3[1])
-	Model4:backward(im4,GradOutputs3[2])
-	return loss, gradParameters
+	Model:backward(im1,criterion.gradInput[1])
+	Model2:backward(im2,criterion.gradInput[2])
+	Model3:backward(im3,criterion.gradInput[3])
+	Model4:backward(im4,criterion.gradInput[4])
+	return output
 end
 
-function doStuff_Rep(Models,criterion,gradParameters,Batch)
+function doStuff_Rep(Models,criterion,Batch)
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	im3=Batch[3]:cuda()
 	im4=Batch[4]:cuda()
+
 
 	Model=Models.Model1
 	Model2=Models.Model2
@@ -98,42 +94,78 @@ function doStuff_Rep(Models,criterion,gradParameters,Batch)
 	State2=Model2:forward(im2)
 	State3=Model3:forward(im3)
 	State4=Model4:forward(im4)
+-------------------------------------------------------------------------------------------
 
-	Module= nn.Sequential()
-	Module:add(nn.CSubTable())
-	Module:add(nn.Square())
-	Module:add(nn.Sum(1))
-	Module=Module:cuda()
+	criterion=criterion:cuda()
+	output=criterion:updateOutput({State1, State2, State3, State4})
 
-	Module2=Module:clone()
-
-	delta1=Module:forward({State1,State2})
-	delta2=Module2:forward({State3,State4})
-	
-	criterion2=criterion:clone()
-	loss=criterion:forward({delta1,delta2})
-	loss2=criterion2:forward({State1,State3})
-	loss2=math.exp(-loss2)
-
-	-- BACKWARD
-
-	GradOutputs=criterion:backward({delta1,delta2})
-	GradS=criterion2:backward({State1,State3})
-
-	GradOutputs2=Module:backward({State1,State2},GradOutputs[1])
-	GradOutputs3=Module2:backward({State3,State4},GradOutputs[2])
-
-	GradS1=GradOutputs2[1]*loss2+GradS[1]*loss
-	GradS2=loss2*GradOutputs2[2]
-	GradS3=GradOutputs3[1]*loss2+GradS[2]*loss
-	GradS4=loss2*GradOutputs3[2]
-
-	--print(GradS4)
-
+	--we backward with a starting gradient initialized at 1
+	criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1)) 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1, GradS1)
-	Model2:backward(im2,GradS2)
-	Model3:backward(im3,GradS3)
-	Model4:backward(im4,GradS4)
-	return loss2*loss, gradParameters
+	Model:backward(im1,criterion.gradInput[1])
+	Model2:backward(im2,criterion.gradInput[2])
+	Model3:backward(im3,criterion.gradInput[3])
+	Model4:backward(im4,criterion.gradInput[4])
+	return output
 end
+
+function get_Rep_criterion()
+	h1 = nn.Identity()()
+	h2 = nn.Identity()()
+	h3 = nn.Identity()()
+	h4 = nn.Identity()()
+
+	h_h1 = nn.CSubTable()({h2,h1})
+	h_h2 = nn.CSubTable()({h4,h3})
+
+	madd = nn.CSubTable()({h_h2,h_h1})
+	sqr=nn.Square()(madd)
+	out1 = nn.Sum(1,1)(sqr)
+
+	norm2= nn.Sum(1,1)(nn.Square()(nn.CSubTable()({h3,h1})))
+	out2=nn.Exp()(nn.MulConstant(-1)(norm2))
+
+	outTot=nn.Sum(1,1)(nn.CMulTable()({out1, out2}))
+	gmod = nn.gModule({h1, h2, h3, h4}, {outTot})
+	return gmod
+end
+
+function get_Prop_criterion()
+	h1 = nn.Identity()()
+	h2 = nn.Identity()()
+	h3 = nn.Identity()()
+	h4 = nn.Identity()()
+
+	h_h1 = nn.CSubTable()({h2,h1})
+	h_h2 = nn.CSubTable()({h4,h3})
+
+	norm=nn.Sqrt()(nn.Sum(1,1)(nn.Square()(h_h1)))
+	norm2=nn.Sqrt()(nn.Sum(1,1)(nn.Square()(h_h2)))
+
+	madd = nn.CSubTable()({norm,norm2})
+	sqr=nn.Square()(madd)
+	out = nn.Sum(1,1)(sqr)
+
+	gmod = nn.gModule({h1, h2, h3, h4}, {out})
+	return gmod
+end
+
+function get_Caus_criterion()
+	h1 = nn.Identity()()
+	h2 = nn.Identity()()
+
+	h_h1 = nn.CSubTable()({h2,h1})
+
+	norm=nn.Sum(1,1)(nn.Square()(h_h1))
+	exp=nn.Exp()(nn.MulConstant(-1)(norm))
+	out = nn.Sum(1,1)(exp)
+
+	gmod = nn.gModule({h1, h2}, {out})
+	return gmod
+end
+
+
+
+
+
+
