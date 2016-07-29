@@ -3,27 +3,24 @@ require 'nn'
 
 
 -- network-------------------------------------------------------
-function getModel(image_width,image_height)
+function getModel()
 	nbFilter=32
-	nbFilter2=16
 
 	Timnet = nn.Sequential()
 	Timnet:add(nn.SpatialConvolution(3, nbFilter, 3, 3))
 	Timnet:add(nn.SpatialBatchNormalization(nbFilter))
 	Timnet:add(nn.ReLU())
-	Timnet:add(nn.SpatialMaxPooling(2,2,2,2,1,1))
 	Timnet:add(nn.SpatialConvolution(nbFilter, 32, 3, 3))
-	Timnet:add(nn.SpatialBatchNormalization(32)) 
+	Timnet:add(nn.SpatialBatchNormalization(nbFilter)) 
 	Timnet:add(nn.ReLU())
-	Timnet:add(nn.SpatialMaxPooling(2,2,2,2,1,1))
-	Timnet:add(nn.SpatialConvolution(32, nbFilter2, 3, 3))
-	Timnet:add(nn.SpatialBatchNormalization(nbFilter2)) 
+	Timnet:add(nn.SpatialMaxPooling(5,5,5,5))
+	Timnet:add(nn.SpatialConvolution(nbFilter, 1, 1, 1))
+	Timnet:add(nn.SpatialBatchNormalization(1)) 
 	Timnet:add(nn.ReLU())
-	Timnet:add(nn.SpatialMaxPooling(10,10,10,10))
-	Timnet:add(nn.View(nbFilter2*5*5))               
-	Timnet:add(nn.Linear(nbFilter2*19*19, 100))
+	Timnet:add(nn.View(39*39))                
+	Timnet:add(nn.Linear(39*39, 500))
 	Timnet:add(nn.ReLU())                    
-	Timnet:add(nn.Linear(100, 1))
+	Timnet:add(nn.Linear(500, 1))
 
 	-- Initiallisation : "Understanding the difficulty of training deep feedforward neural networks"
 	local method = 'xavier'

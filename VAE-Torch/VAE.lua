@@ -1,6 +1,5 @@
 require 'torch'
 require 'nn'
-require "noiseModule"
 
 local VAE = {}
 

@@ -108,7 +108,8 @@ function create_Head_Training_list(list_im, txt)
 		-- arrondit au 1/10 près
 		floor=math.floor(tensor[i][3]*10)/10
 		ceil=math.ceil(tensor[i][3]*10)/10
-		if math.abs(tensor[i][3]-ceil)>math.abs(tensor[i][3]-floor) then tensor[i][3]= floor
+		if math.abs(tensor[i][3]-ceil)>math.abs(tensor[i][3]-floor) then 
+			tensor[i][3]= floor
 		else tensor[i][3]= ceil end
 	end
 
@@ -149,9 +150,6 @@ function create_Head_Training_list(list_im, txt)
 		value=tensor[i][3]
 		for j=i+1, #list_im do
 			delta=value-tensor[j][3]
-			--print("delta : "..delta)
-			--print("im1 : "..list_im[i])
-			--print("im1 : "..list_im[j])
 			for l=i, #list_im do
 				value2=tensor[l][3]
 				for m=l+1, #list_im do
@@ -177,16 +175,6 @@ function create_Head_Training_list(list_im, txt)
 		end
 	
 	end
-
---[[
-	for i=1, #associated_images.Mode do
-		print('im1 : '..associated_images.im1[i])
-		print('im2 : '..associated_images.im2[i])
-		print('im3 : '..associated_images.im3[i])
-		print('im4 : '..associated_images.im4[i])
-		print('Mode : '..associated_images.Mode[i])
-	end
---]]
 print("Nombre d'association : "..#associated_images_Prop.Mode+#associated_images_Temp.Mode)
 return associated_images_Prop, associated_images_Temp
 end

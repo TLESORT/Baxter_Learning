@@ -14,13 +14,10 @@ require 'MSDC'
 require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
-require './Autoencoder/noiseModule'
-
 
 function copy_weight(model, AE)
 	model:get(1).weight:copy(AE:get(1).weight)
 	model:get(4).weight:copy(AE:get(5).weight)
-	model:get(7).weight:copy(AE:get(8).weight)
 	return model
 end
 
@@ -108,20 +105,27 @@ end
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 local reload=false
 local TakeWeightFromAE=true
+local UseSecondGPU= true
+local model_file='./models/Nouveau_modele_topUniqueFM'
 
 local image_width=200
 local image_height=200
 
+if UseSecondGPU then
+	cutorch.setDevice(2) 
+end
+
 if reload then
 	Model = torch.load('./Save/Save07_07.t7'):double()
 elseif TakeWeightFromAE then
-	require "./models/mini_model"
+	require './Autoencoder/noiseModule'
+	require(model_file)
 	Model=getModel(image_width,image_height)
-	AE= torch.load('./Save/AE_3x3.t7'):double()
+	AE= torch.load('./Save/AE_3x3_1TopFM.t7'):double()
 	print('AE\n' .. AE:__tostring());
 	Model=copy_weight(Model, AE)
 else
-	require "./models/mini_model"
+	require(model_file)
 	Model=getModel(image_width,image_height)	
 end
 Model=Model:cuda()

@@ -16,6 +16,10 @@ function doStuff_temp(Models,criterion,Batch)
 	-- calculer les gradients pour les deux images
 	Model:backward(im1,GradOutputs[1])
 	Model2:backward(im2,GradOutputs[2])
+
+	print("TEMP : ")
+	print(criterion.gradInput[1])
+
 	return loss
 end
 
@@ -40,6 +44,9 @@ function doStuff_Caus(Models,criterion,Batch)
 	-- calculer les gradients pour les deux images
 	Model:backward(im1,criterion.gradInput[1])
 	Model2:backward(im2,criterion.gradInput[2])
+
+	print("CAUS : ")
+	print(criterion.gradInput[1])
 	return output
 end
 
@@ -74,6 +81,9 @@ function doStuff_Prop(Models,criterion,Batch)
 	Model2:backward(im2,criterion.gradInput[2])
 	Model3:backward(im3,criterion.gradInput[3])
 	Model4:backward(im4,criterion.gradInput[4])
+
+	print("PROP : ")
+	print(criterion.gradInput[1])
 	return output
 end
 
@@ -106,6 +116,8 @@ function doStuff_Rep(Models,criterion,Batch)
 	Model2:backward(im2,criterion.gradInput[2])
 	Model3:backward(im3,criterion.gradInput[3])
 	Model4:backward(im4,criterion.gradInput[4])
+	print("REP : ")
+	print(criterion.gradInput[1])
 	return output
 end
 

@@ -8,13 +8,13 @@ require 'xlua'
 require 'math'
 require 'string'
 require 'cunn'
-
+require 'cutorch'
 
 
 require '../functions.lua'
 require "../Get_HeadCamera_HeadMvt"
 
-
+cutorch.setDevice(2) 
 
 
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
@@ -48,10 +48,9 @@ for epoch=1, nbEpoch do
 			AE:updateParameters(LR)
 
 
-if i==1 then
-image.display(input)
-save_model(AE,'../Save/AE_3x3_NoWeightSharing.t7')
-image.display(output)
+if i==1 and nbList%5=0 then
+image.display(image={input,output)
+save_model(AE,'../Save/AE_3x3_1TopFM.t7')
 end
 		end
 		xlua.progress(l, #list_folders_images)
