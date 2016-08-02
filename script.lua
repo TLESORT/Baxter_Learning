@@ -27,7 +27,6 @@ function Rico_Training(Models, Mode,batch, criterion)
         local coefL2=0,0
 
 	parameters,gradParameters = Models.Model1:getParameters()
-
 	      -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
          -- just in case:
@@ -56,8 +55,8 @@ function Rico_Training(Models, Mode,batch, criterion)
 
 	state=state or {learningRate = LR,paramVariance=nil, weightDecay=0.0005 }
 	config=config or {}
-	optim.adagrad(feval, parameters,config, state)
-
+	parameters, loss=optim.adagrad(feval, parameters,config, state)
+	return loss[1] -- table of one value transformed in value
 
 	--parameters, loss=optim.sgd(feval, parameters, sgdState)
 end
@@ -65,14 +64,22 @@ end
 
 
 --load the two images
-function train_epoch(Models, list_folders_images, list_txt)
-	local BatchSize=5
+function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
+	local BatchSize=12
 	local list_t=images_Paths(list_folders_images[2])
 	nbEpoch=10
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
 	local CAUS_criterion=get_Caus_criterion()
 	local TEMP_criterion=nn.MSDCriterion()
+
+	local Temp_loss_tot=0
+	local Prop_loss_tot=0
+	local Rep_loss_tot=0
+
+	local Temp_loss_list={}
+	local Prop_loss_list={}
+	local Rep_loss_list={}
 			
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
@@ -81,31 +88,64 @@ function train_epoch(Models, list_folders_images, list_txt)
 		
 		nbList=1-------------------------------!!!!----------------
 		
+
+
+		local NbBatchForLossEstimation=100
+
 		for l=1,nbList do
 			list=images_Paths(list_folders_images[l])
 			imgs=load_list(list)
-			list_Prop, list_Temp=create_Head_Training_list(list, list_txt[1])
-			NbPass=#list_Prop.Mode+#list_Temp.Mode
-			NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
+			print(#imgs..' : images')
+			list_Prop, list_Temp, truth=create_Head_Training_list(list, list_txt[1],use_simulate_images)
+			show_figure(truth, './Log/Truth.Log')
+			--NbPass=#list_Prop.Mode+#list_Temp.Mode
+			--NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
+
+			Batch_temp_max=math.ceil((#list_Temp.Mode)/BatchSize)
+			Batch_Prop_max=math.ceil((#list_Prop.Mode)/BatchSize)
+
+			NbBatch=10000
 			for numBatch=1, NbBatch do
-				Batch_Temp=getBatch(imgs,list_Temp, numBatch, BatchSize, 200, 200,"Temp")
-				Batch_Prop=getBatch(imgs,list_Prop, numBatch, BatchSize, 200, 200,"Prop")
-				Rico_Training(Models, 'Temp',Batch, TEMP_criterion)
-				Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
-				Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
+				indice_Temp=math.random(1, Batch_temp_max)
+				Batch_Temp=getBatch(imgs,list_Temp, indice_Temp, BatchSize, 200, 200,"Temp")
+				
+				indice_Prop=math.random(1, Batch_Prop_max)
+				Batch_Prop=getBatch(imgs,list_Prop, indice_Prop, BatchSize, 200, 200,"Prop")
+				Temp_loss=Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
+				Prop_loss=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Rep_loss=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
 				xlua.progress(numBatch, NbBatch)
+
+				Temp_loss_tot=Temp_loss_tot+Temp_loss
+				Prop_loss_tot=Prop_loss_tot+Prop_loss
+				Rep_loss_tot=Rep_loss_tot+Rep_loss
+
+				if numBatch%NbBatchForLossEstimation==0 then 
+					Print_performance(Models.Model1,imgs,epoch)
+					table.insert(Temp_loss_list,Temp_loss_tot/NbBatchForLossEstimation)
+					table.insert(Prop_loss_list,Prop_loss_tot/NbBatchForLossEstimation)
+					table.insert(Rep_loss_list,Rep_loss_tot/NbBatchForLossEstimation)
+
+					Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list)
+
+					Temp_loss_tot=0
+					Prop_loss_tot=0
+					Rep_loss_tot=0
+				end
+
 			end
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Models.Model1,'./Save/Save07_07.t7')
+		save_model(Models.Model1,'./Save/Save02_08.t7')
 		Print_performance(Models.Model1,imgs,epoch)
 	end
 end
 
-local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
+local use_simulate_images=true
+local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
-local TakeWeightFromAE=true
-local UseSecondGPU= true
+local TakeWeightFromAE=false
+local UseSecondGPU= false
 local model_file='./models/Nouveau_modele_topUniqueFM'
 
 local image_width=200
@@ -135,5 +175,5 @@ Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','runni
 
 Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
 
-train_epoch(Models, list_folders_images, list_txt)
+train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 

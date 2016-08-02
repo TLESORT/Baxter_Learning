@@ -79,9 +79,15 @@ function Print_performance(Model,imgs, epoch)
 			Model:forward(Data1)
 			local State1=Model.output[1]		
 				
-			table.insert(list_out1,State1*1000)
+			table.insert(list_out1,State1)
 		end
-		show_figure(list_out1, epoch)
+		show_figure(list_out1, './Log/state'..epoch..'.log', 1000)
+end
+
+function Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list)
+	show_figure(Temp_loss_list, './Log/Temp_loss.log', 1000)
+	show_figure(Prop_loss_list,  './Log/Prop_loss.log', 1000)
+	show_figure(Rep_loss_list, './Log/Rep_loss.log', 1000)
 end
 
 function load_list(list,lenght,height)
@@ -102,16 +108,18 @@ function getImage(im,length,height,SpacialNormalization)
 	return preprocessing(img1_rsz,length,height, SpacialNormalization)
 end
 
-function show_figure(list_out1, epoch)
+function show_figure(list_out1, Name , scale)
+
+	local scale=scale or 1000
 	-- log results to files
-	accLogger = optim.Logger('./Log/state'..epoch..'.log')
+	accLogger = optim.Logger(Name)
 
 	for i=1, #list_out1 do
 	-- update logger
-		accLogger:add{['out1'] = list_out1[i]}
+		accLogger:add{['out1'] = list_out1[i]*scale}
 	end
 	-- plot logger
-	accLogger:style{['Representation*1000'] = '-'}
+	accLogger:style{['out1'] = '+'}
 	accLogger:plot()
 end
 
