@@ -45,14 +45,20 @@ function Get_Folders(Path, including, excluding,list)
 	return list
 end
 
-function Get_HeadCamera_HeadMvt()
-	local Path=paths.home.."/baxter/original_data/"
+function Get_HeadCamera_HeadMvt(use_simulate_images)
+	local use_simulate_images=use_simulate_images or false
+	local Path
+	if use_simulate_images then
+		Path=paths.home.."/baxter_sim_data/original_data/"
+	else
+		 Path=paths.home.."/baxter/original_data/"
+	end
 
-	local Paths=Get_Folders(Path,'2016' .. '$')
+	local Paths=Get_Folders(Path,'2016$')
 	list={}
 	list_txt={}
 	for i=1, #Paths do
-		list=Get_Folders(Paths[i],'head','bag' .. '$',list)
+		list=Get_Folders(Paths[i],'head','bag$',list)
 	end
 
 	list_head_left={}
@@ -98,26 +104,34 @@ end
 
 
 -- create list of image indice which symboliseimages association for prior training
-function create_Head_Training_list(list_im, txt)
+function create_Head_Training_list(list_im, txt,use_simulate_images)
 	 local associated_images_Prop={im1={},im2={},im3={},im4={},Mode={}}
 	 local associated_images_Temp={im1={},im2={},im3={},im4={},Mode={}}
+	 local head_pan_indice
+	
+	if use_simulate_images then head_pan_indice=2 
+	else head_pan_indice=3 end 
+	
+	truth={}
 
 	tensor, label=tensorFromTxt(txt)
 
 	for i=1, (#tensor[{}])[1] do
 		-- arrondit au 1/10 près
-		floor=math.floor(tensor[i][3]*10)/10
-		ceil=math.ceil(tensor[i][3]*10)/10
-		if math.abs(tensor[i][3]-ceil)>math.abs(tensor[i][3]-floor) then 
-			tensor[i][3]= floor
-		else tensor[i][3]= ceil end
+		table.insert(truth, tensor[i][head_pan_indice])
+		floor=math.floor(tensor[i][head_pan_indice]*10)/10
+		ceil=math.ceil(tensor[i][head_pan_indice]*10)/10
+		if math.abs(tensor[i][head_pan_indice]-ceil)>math.abs(tensor[i][head_pan_indice]-floor) then 
+			tensor[i][head_pan_indice]= floor
+		else tensor[i][head_pan_indice]= ceil end
+
 	end
 
 -- TEMP : ici il est considéré que deux états proches sont potentiellement proche dans le temps
 	for i=1, #list_im do
-		value=tensor[i][3]
+		value=tensor[i][head_pan_indice]
 		for j=i+1, #list_im do
-			if value==tensor[j][3] then
+			if value==tensor[j][head_pan_indice] then
 				table.insert(associated_images_Temp.im1,i)
 				table.insert(associated_images_Temp.im2,j)
 				table.insert(associated_images_Temp.im3,0)
@@ -147,19 +161,23 @@ function create_Head_Training_list(list_im, txt)
 	end
  -- PROP
 	for i=1, #list_im-1 do
-		value=tensor[i][3]
+		value=tensor[i][head_pan_indice]
 		for j=i+1, #list_im do
-			delta=value-tensor[j][3]
+			delta=value-tensor[j][head_pan_indice]
 			for l=i, #list_im do
-				value2=tensor[l][3]
+				value2=tensor[l][head_pan_indice]
 				for m=l+1, #list_im do
-					delta2=value2-tensor[m][3]
-					if (l~=i or m~=j) and (delta==delta2) and delta~=0 then
+					delta2=value2-tensor[m][head_pan_indice]
+					if (l~=i or m~=j) and (delta==delta2) and (delta2*delta)~=0 then
 						table.insert(associated_images_Prop.im1,i)
 						table.insert(associated_images_Prop.im2,j)
 						table.insert(associated_images_Prop.im3,l)
 						table.insert(associated_images_Prop.im4,m)
 						table.insert(associated_images_Prop.Mode,'Prop')
+
+					--print(delta.."delta1")
+					--print(delta2.."delta2")
+	
 					elseif delta==(-1)*delta2 and delta~=0 then
 						table.insert(associated_images_Prop.im1,i)
 						table.insert(associated_images_Prop.im2,j)
@@ -175,6 +193,10 @@ function create_Head_Training_list(list_im, txt)
 		end
 	
 	end
-print("Nombre d'association : "..#associated_images_Prop.Mode+#associated_images_Temp.Mode)
-return associated_images_Prop, associated_images_Temp
+print("Nb Temp association : "..#associated_images_Temp.Mode)
+print("Nb Prop association : "..#associated_images_Prop.Mode)
+
+
+
+return associated_images_Prop, associated_images_Temp, truth
 end

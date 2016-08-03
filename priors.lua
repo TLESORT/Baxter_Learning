@@ -13,29 +13,9 @@ function doStuff_temp(Models,criterion,Batch)
 	loss=criterion:forward({State1,State2})
 	GradOutputs=criterion:backward({State1,State2})
 
-	-- normalisation dégeulasse des gradients
---[[
-	local somme_1=0
-	local somme_2=0
-	for i=1, GradOutputs[1]:size(1) do
-	somme_1=somme_1+math.abs(GradOutputs[1][i][1])
-	somme_2=somme_2+math.abs(GradOutputs[2][i][1])
-	end
-	for i=1, criterion.gradInput[1]:size(1) do
-	if somme_1~=0 then GradOutputs[1][i]=GradOutputs[1][i]/somme_1 end	
-	if somme_2~=0 then GradOutputs[2][i]=GradOutputs[2][i]/somme_2 end
-	end
---]]
-
-
-
 	-- calculer les gradients pour les deux images
 	Model:backward(im1,GradOutputs[1])
 	Model2:backward(im2,GradOutputs[2])
-
-	--grad= (torch.ones(5,1)*0.5):cuda()
-	--Model:backward(im1, -1*grad)
-	--Model2:backward(im2,grad)
 
 	return loss
 end
@@ -90,37 +70,10 @@ function doStuff_Prop(Models,criterion,Batch)
 	--we backward with a starting gradient initialized at 1
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
-	-- normalisation dégeulasse des gradients
---[[
-	local somme_1=0
-	local somme_2=0
-	local somme_3=0
-	local somme_4=0
-
-	for i=1, GradOutputs[1]:size(1) do
-	somme_1=somme_1+math.abs(GradOutputs[1][i][1])
-	somme_2=somme_2+math.abs(GradOutputs[2][i][1])
-	somme_3=somme_3+math.abs(GradOutputs[3][i][1])
-	somme_4=somme_4+math.abs(GradOutputs[4][i][1])
-	end
-	for i=1, criterion.gradInput[1]:size(1) do
-	if somme_1~=0 then GradOutputs[1][i]=GradOutputs[1][i]/somme_1 end	
-	if somme_2~=0 then GradOutputs[2][i]=GradOutputs[2][i]/somme_2 end
-	if somme_3~=0 then GradOutputs[3][i]=GradOutputs[3][i]/somme_3 end
-	if somme_4~=0 then GradOutputs[4][i]=GradOutputs[4][i]/somme_4 end
-	end
---]]
 	Model:backward(im1,GradOutputs[1])
 	Model2:backward(im2,GradOutputs[2])
 	Model3:backward(im3,GradOutputs[3])
 	Model4:backward(im4,GradOutputs[4])
---[[	
-	grad= (torch.ones(5,1)*0.25):cuda()
-	Model:backward(im1, grad)
-	Model2:backward(im2,-1*grad)
-	Model3:backward(im3, grad)
-	Model4:backward(im4,-1*grad)
-]]--
 
 	return output[1]
 end
@@ -148,38 +101,18 @@ function doStuff_Rep(Models,criterion,Batch)
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
+
+
+
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1)) 
 
-	-- normalisation dégeulasse des gradients
---[[
-	local somme_1=0
-	local somme_2=0
-	local somme_3=0
-	local somme_4=0
+--!!!!!!!!!!!!!!!!!!!!!!!!!!! coef added -> grad *2
+	local coef=2
 
-	for i=1, GradOutputs[1]:size(1) do
-	somme_1=somme_1+math.abs(GradOutputs[1][i][1])
-	somme_2=somme_2+math.abs(GradOutputs[2][i][1])
-	somme_3=somme_3+math.abs(GradOutputs[3][i][1])
-	somme_4=somme_4+math.abs(GradOutputs[4][i][1])
-	end
-	for i=1, criterion.gradInput[1]:size(1) do
-	if somme_1~=0 then GradOutputs[1][i]=GradOutputs[1][i]/somme_1 end	
-	if somme_2~=0 then GradOutputs[2][i]=GradOutputs[2][i]/somme_2 end
-	if somme_3~=0 then GradOutputs[3][i]=GradOutputs[3][i]/somme_3 end
-	if somme_4~=0 then GradOutputs[4][i]=GradOutputs[4][i]/somme_4 end
-	end
---]]
-	Model:backward(im1,GradOutputs[1])
-	Model2:backward(im2,GradOutputs[2])
-	Model3:backward(im3,GradOutputs[3])
-	Model4:backward(im4,GradOutputs[4])
-
---[[	grad= (torch.ones(5,1)*0.25):cuda()
-	Model:backward(im1, grad)
-	Model2:backward(im2,-1*grad)
-	Model3:backward(im3, grad)
-	Model4:backward(im4,-1*grad)--]]
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	Model3:backward(im3,coef*GradOutputs[3])
+	Model4:backward(im4,coef*GradOutputs[4])
 
 	return output[1]
 end

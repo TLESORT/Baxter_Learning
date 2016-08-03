@@ -23,7 +23,7 @@ end
 
 function Rico_Training(Models, Mode,batch, criterion)
 	local LR=0.01
-	local mom=0.0
+	local mom=0.9
         local coefL2=0,0
 
 	parameters,gradParameters = Models.Model1:getParameters()
@@ -56,9 +56,9 @@ function Rico_Training(Models, Mode,batch, criterion)
 	state=state or {learningRate = LR,paramVariance=nil, weightDecay=0.0005 }
 	config=config or {}
 	parameters, loss=optim.adagrad(feval, parameters,config, state)
-	return loss[1] -- table of one value transformed in value
 
 	--parameters, loss=optim.sgd(feval, parameters, sgdState)
+	return loss[1] -- table of one value transformed in value
 end
 
 
@@ -72,6 +72,10 @@ function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local PROP_criterion=get_Prop_criterion()
 	local CAUS_criterion=get_Caus_criterion()
 	local TEMP_criterion=nn.MSDCriterion()
+
+	local Temp_loss=0
+	local Prop_loss=0
+	local Rep_loss=0
 
 	local Temp_loss_tot=0
 	local Prop_loss_tot=0
@@ -90,7 +94,7 @@ function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 		
 
 
-		local NbBatchForLossEstimation=100
+		local NbBatchForLossEstimation=1000
 
 		for l=1,nbList do
 			list=images_Paths(list_folders_images[l])
@@ -125,28 +129,39 @@ function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 					table.insert(Temp_loss_list,Temp_loss_tot/NbBatchForLossEstimation)
 					table.insert(Prop_loss_list,Prop_loss_tot/NbBatchForLossEstimation)
 					table.insert(Rep_loss_list,Rep_loss_tot/NbBatchForLossEstimation)
-
-					Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list)
+					local id=numBatch -- variable used to not mix several log files
+					Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, id)
 
 					Temp_loss_tot=0
 					Prop_loss_tot=0
 					Rep_loss_tot=0
+					
+					save_model(Models.Model1,name_save)
+				elseif numBatch==1 then
+					Print_performance(Models.Model1,imgs,epoch)
+					table.insert(Temp_loss_list,Temp_loss_tot)
+					table.insert(Prop_loss_list,Prop_loss_tot)
+					table.insert(Rep_loss_list,Rep_loss_tot)
+										Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, '')
 				end
 
 			end
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Models.Model1,'./Save/Save02_08.t7')
+		save_model(Models.Model1,name_save)
 		Print_performance(Models.Model1,imgs,epoch)
 	end
 end
 
-local use_simulate_images=true
+name_save='./Save/Save03_08_real.t7'
+name_load='./Save/Save03_08.t7'
+
+local use_simulate_images=false
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
 local UseSecondGPU= false
-local model_file='./models/Nouveau_modele_topUniqueFM'
+local model_file='./models/topUniqueFM_Deeper'
 
 local image_width=200
 local image_height=200
@@ -156,7 +171,7 @@ if UseSecondGPU then
 end
 
 if reload then
-	Model = torch.load('./Save/Save07_07.t7'):double()
+	Model = torch.load(name_load):double()
 elseif TakeWeightFromAE then
 	require './Autoencoder/noiseModule'
 	require(model_file)

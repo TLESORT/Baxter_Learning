@@ -84,10 +84,10 @@ function Print_performance(Model,imgs, epoch)
 		show_figure(list_out1, './Log/state'..epoch..'.log', 1000)
 end
 
-function Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list)
-	show_figure(Temp_loss_list, './Log/Temp_loss.log', 1000)
-	show_figure(Prop_loss_list,  './Log/Prop_loss.log', 1000)
-	show_figure(Rep_loss_list, './Log/Rep_loss.log', 1000)
+function Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, id)
+	show_figure(Temp_loss_list, './Log/Temp_loss'..id..'.log', 1000)
+	show_figure(Prop_loss_list,  './Log/Prop_loss'..id..'.log', 1000)
+	show_figure(Rep_loss_list, './Log/Rep_loss'..id..'.log', 1000)
 end
 
 function load_list(list,lenght,height)
