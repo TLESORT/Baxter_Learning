@@ -66,55 +66,51 @@ end
 --load the two images
 function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local BatchSize=12
-	local list_t=images_Paths(list_folders_images[2])
-	nbEpoch=10
+	nbEpoch=3
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
 	local CAUS_criterion=get_Caus_criterion()
 	local TEMP_criterion=nn.MSDCriterion()
 
-	local Temp_loss=0
-	local Prop_loss=0
-	local Rep_loss=0
-
-	local Temp_loss_tot=0
-	local Prop_loss_tot=0
-	local Rep_loss_tot=0
-
 	local Temp_loss_list={}
 	local Prop_loss_list={}
 	local Rep_loss_list={}
+	
+	local NbBatch=1000
+	local last_indice=#list_folders_images
+	local imgs_test=load_list(images_Paths(list_folders_images[last_indice]))
+	local truth=getTruth(list_txt[last_indice],use_simulate_images)
+	show_figure(truth, './Log/The_Truth.Log')
+	Print_performance(Models.Model1, imgs_test,"First_Test")
+
 			
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
 		print(#list_folders_images..' : sequences')
 		nbList= #list_folders_images
-		
-		nbList=1-------------------------------!!!!----------------
-		
-
 
 		local NbBatchForLossEstimation=1000
 
-		for l=1,nbList do
+		for l=1,nbList-1 do
+
+			local Temp_loss=0
+			local Prop_loss=0
+			local Rep_loss=0
+
+			local Temp_loss_tot=0
+			local Prop_loss_tot=0
+			local Rep_loss_tot=0
+
 			list=images_Paths(list_folders_images[l])
 			imgs=load_list(list)
 			print(#imgs..' : images')
-			list_Prop, list_Temp, truth=create_Head_Training_list(list, list_txt[1],use_simulate_images)
-			show_figure(truth, './Log/Truth.Log')
-			--NbPass=#list_Prop.Mode+#list_Temp.Mode
-			--NbBatch=math.floor((#list_Prop.Mode+#list_Temp.Mode)/BatchSize)
+			truth=getTruth(list_txt[l],use_simulate_images)
+			show_figure(truth, './Log/Truth_list_'..l..'.Log')
 
-			Batch_temp_max=math.ceil((#list_Temp.Mode)/BatchSize)
-			Batch_Prop_max=math.ceil((#list_Prop.Mode)/BatchSize)
 
-			NbBatch=10000
 			for numBatch=1, NbBatch do
-				indice_Temp=math.random(1, Batch_temp_max)
-				Batch_Temp=getBatch(imgs,list_Temp, indice_Temp, BatchSize, 200, 200,"Temp")
-				
-				indice_Prop=math.random(1, Batch_Prop_max)
-				Batch_Prop=getBatch(imgs,list_Prop, indice_Prop, BatchSize, 200, 200,"Prop")
+				Batch_Temp=getRandomBatch(imgs, list, list_txt[l], BatchSize, 	200, 200, "Temp", use_simulate_images)
+				Batch_Prop=getRandomBatch(imgs, list, list_txt[l], BatchSize, 200, 200, "Prop", use_simulate_images)
 				Temp_loss=Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
 				Prop_loss=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
 				Rep_loss=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
@@ -124,43 +120,32 @@ function train_epoch(Models, list_folders_images, list_txt,use_simulate_images)
 				Prop_loss_tot=Prop_loss_tot+Prop_loss
 				Rep_loss_tot=Rep_loss_tot+Rep_loss
 
-				if numBatch%NbBatchForLossEstimation==0 then 
-					Print_performance(Models.Model1,imgs,epoch)
-					table.insert(Temp_loss_list,Temp_loss_tot/NbBatchForLossEstimation)
-					table.insert(Prop_loss_list,Prop_loss_tot/NbBatchForLossEstimation)
-					table.insert(Rep_loss_list,Rep_loss_tot/NbBatchForLossEstimation)
-					local id=numBatch -- variable used to not mix several log files
-					Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, id)
-
-					Temp_loss_tot=0
-					Prop_loss_tot=0
-					Rep_loss_tot=0
-					
-					save_model(Models.Model1,name_save)
-				elseif numBatch==1 then
-					Print_performance(Models.Model1,imgs,epoch)
-					table.insert(Temp_loss_list,Temp_loss_tot)
-					table.insert(Prop_loss_list,Prop_loss_tot)
-					table.insert(Rep_loss_list,Rep_loss_tot)
-										Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, '')
-				end
-
 			end
+			save_model(Models.Model1,name_save)
+			
+			local id=name..l -- variable used to not mix several log files
+			Print_performance(Models.Model1,imgs,id.."train")
+			print(#imgs_test)
+			Print_performance(Models.Model1, imgs_test,id.."_Test")
+			table.insert(Temp_loss_list,Temp_loss_tot/NbBatch)
+			table.insert(Prop_loss_list,Prop_loss_tot/NbBatch)
+			table.insert(Rep_loss_list,Rep_loss_tot/NbBatch)
+
+			Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, id)
 			xlua.progress(l, #list_folders_images)
 		end
-		save_model(Models.Model1,name_save)
-		Print_performance(Models.Model1,imgs,epoch)
 	end
 end
 
-name_save='./Save/Save03_08_real.t7'
-name_load='./Save/Save03_08.t7'
+name='Save08_08_NoTrick'
+name_save='./Save/'..name..'.t7'
+name_load='./Save/'..name..'.t7'
 
-local use_simulate_images=false
+local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= false
+local UseSecondGPU= true
 local model_file='./models/topUniqueFM_Deeper'
 
 local image_width=200

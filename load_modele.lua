@@ -4,7 +4,10 @@ require 'optim'
 require 'image'
 require 'torch'
 require 'xlua'
-require 'cutorch'
+require 'math'
+require 'string'
+require 'cunn'
+require 'nngraph'
 
 require 'MSDC'
 require 'functions.lua'
@@ -13,14 +16,13 @@ require 'priors'
 
 
 --net = torch.load('model-test.t7'):double()
-net = torch.load('./Save/SupervisedSave07_07.t7'):double()
+net = torch.load('./Save/Save03_08_real.t7'):double()
 print('net\n' .. net:__tostring());
 --net=net:cuda()
 
-
-list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
-
-local list1=images_Paths(list_folders_images[1])
+local use_simulate_images=true
+local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
+local list=images_Paths(list_folders_images[1])
 
 --[[
 image1=getImage(list1[17])
@@ -43,13 +45,15 @@ local State1=net.output[1]
 
 
 
+nbIm=#list
+imgs=load_list(list, 200, 200)
 
-
-for i=1, #list1 do
-	image1=getImage(list1[i])
-	Data1=image1--:cuda()
-	net:forward(Data1)
-	image.display{image=net:get(8).output[1], nrow=8,  zoom=1, legend="image"..i}
+for i=1, nbIm-1 do
+	Batch=torch.Tensor(2,3, 200, 200)
+	Batch[1]=imgs[i]
+	Batch[2]=imgs[i+1]
+	net:forward(Batch)
+	image.display{image=net:get(19).output[1], nrow=16,  zoom=10, legend="image"..i}
 	--image.display{image=net:get(15).output[1][10], nrow=16,  zoom=5}
 	--image.display{image=net:get(16).output[1], nrow=16,  zoom=20}
 end

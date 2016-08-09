@@ -9,7 +9,7 @@ end
 
 function preprocessing(im, lenght, width, SpacialNormalization)
 
-	local SpacialNormalization= SpacialNormalization or true
+	local SpacialNormalization= (SpacialNormalization==nil and true) or SpacialNormalization
 		-- Name channels for convenience
 	local channels = {'y','u','v'}
 	local mean = {}
@@ -67,7 +67,27 @@ function getBatch(imgs, list, indice, lenght, width, height, Type)
 
 end
 
-function Print_performance(Model,imgs, epoch)
+function getRandomBatch(imgs, list_im, txt, lenght, width, height, Mode, use_simulate_images)
+	
+	if Mode=="Prop" then
+		Batch=torch.Tensor(4, lenght,3, width, height)
+	else
+		Batch=torch.Tensor(2, lenght,3, width, height)
+	end
+	
+	for i=1, lenght do
+		Set=get_one_random_Prop_Set(list_im, txt ,use_simulate_images, Mode)
+		Batch[1][i]=imgs[Set.im1]
+		Batch[2][i]=imgs[Set.im2]
+		if Mode=="Prop" then
+			Batch[3][i]=imgs[Set.im3]
+			Batch[4][i]=imgs[Set.im4]
+		end
+	end
+	return Batch
+end
+
+function Print_performance(Model,imgs, name)
 		local list_out1={}
 		for i=1, #imgs do
 			image1=imgs[i]
@@ -81,13 +101,13 @@ function Print_performance(Model,imgs, epoch)
 				
 			table.insert(list_out1,State1)
 		end
-		show_figure(list_out1, './Log/state'..epoch..'.log', 1000)
+		show_figure(list_out1, './Log/8_08/state'..name..'.log', 1000)
 end
 
 function Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list, id)
-	show_figure(Temp_loss_list, './Log/Temp_loss'..id..'.log', 1000)
-	show_figure(Prop_loss_list,  './Log/Prop_loss'..id..'.log', 1000)
-	show_figure(Rep_loss_list, './Log/Rep_loss'..id..'.log', 1000)
+	show_figure(Temp_loss_list, './Log/8_08/Temp_loss'..id..'.log', 1000)
+	show_figure(Prop_loss_list,  './Log/8_08/Prop_loss'..id..'.log', 1000)
+	show_figure(Rep_loss_list, './Log/8_08/Rep_loss'..id..'.log', 1000)
 end
 
 function load_list(list,lenght,height)

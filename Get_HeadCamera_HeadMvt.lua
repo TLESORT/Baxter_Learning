@@ -94,7 +94,7 @@ function tensorFromTxt(path)
         if rawCounter==1 then
             nbFields = columnCounter
         elseif columnCounter ~= nbFields then
-            error("data dimension for " .. rawCounter .. "th sample is not consistent with previous samples'")
+            error("data dimension for " .. rawCounter .. "the sample is not consistent with previous samples'")
         end
     
         if comment then labels = raw else table.insert(data,raw) end 
@@ -103,32 +103,97 @@ function tensorFromTxt(path)
 end
 
 
--- create list of image indice which symboliseimages association for prior training
-function create_Head_Training_list(list_im, txt,use_simulate_images)
-	 local associated_images_Prop={im1={},im2={},im3={},im4={},Mode={}}
-	 local associated_images_Temp={im1={},im2={},im3={},im4={},Mode={}}
-	 local head_pan_indice
-	
-	if use_simulate_images then head_pan_indice=2 
-	else head_pan_indice=3 end 
-	
-	truth={}
+function get_one_random_SetOfImages(list_im, txt,use_simulate_images, Mode)
+	if Mode=="Temp" then
+		 Set=get_one_random_Temp_Set(list_im)
+	elseif Mode=="Prop" or Mode=="Prep" then		
+		 Set=get_one_random_Prop_Set(list_im, txt,use_simulate_images, Mode)
+	elseif Mode=="Caus" then
+		--TODO
+	else print("Wrong mode used in get_one_random_SetOfImages(Mode)")
+	end
+end
 
+function get_one_random_Temp_Set(list_im)
+	indice=math.random(1,#list_im-1)
+	return {im1=indice,im2=indice+1,im3=0,im4=0,Mode='Temp'}
+end
+
+function get_one_random_Prop_Set(list_im, txt,use_simulate_images,Mode)
+	local WatchDog=0
+	local head_pan_indice=3
+	if use_simulate_images then head_pan_indice=2 end
 	tensor, label=tensorFromTxt(txt)
+	tensor=arrondit(tensor, head_pan_indice)
 
+	while WatchDog<100 do
+		indice1=math.random(1,#list_im-1)
+		indice2=math.random(1,#list_im-1)
+		State1=tensor[indice1][head_pan_indice]
+		State2=tensor[indice2][head_pan_indice]
+		delta=State1-State2
+
+		vector=torch.randperm(#list_im) -- like this we sample uniformly the different possibility
+
+		for i=1, #list_im-1 do
+			id=vector[i]
+			State3=tensor[id][head_pan_indice]
+			for j=i+1, #list_im do
+				id2=vector[j]
+				delta2=State3-tensor[id2][head_pan_indice]
+				if not ((indice1==id and indice2==id2)or (indice1==id2 and indice2==id)) then
+					if delta2==delta then
+						return {im1=indice1,im2=indice2,im3=id,im4=id2,Mode=Mode}
+					elseif delta2==delta*-1 then
+						return {im1=indice1,im2=indice2,im3=id2,im4=id,Mode=Mode}
+					end
+				end
+			end
+		end
+		WatchDog=WatchDog+1
+	end
+end
+
+function getTruth(txt,use_simulate_images)
+	local truth={}
+	local tensor, label=tensorFromTxt(txt)
+	 local head_pan_indice=3
+	 if use_simulate_images then head_pan_indice=2 end
+	
 	for i=1, (#tensor[{}])[1] do
-		-- arrondit au 1/10 près
 		table.insert(truth, tensor[i][head_pan_indice])
+	end
+
+	return truth
+end
+
+function arrondit(tensor, head_pan_indice)
+	for i=1, (#tensor[{}])[1] do
 		floor=math.floor(tensor[i][head_pan_indice]*10)/10
 		ceil=math.ceil(tensor[i][head_pan_indice]*10)/10
 		if math.abs(tensor[i][head_pan_indice]-ceil)>math.abs(tensor[i][head_pan_indice]-floor) then 
 			tensor[i][head_pan_indice]= floor
 		else tensor[i][head_pan_indice]= ceil end
-
 	end
+	return tensor
+end
+
+-- create list of image indice which symboliseimages association for prior training
+function create_Head_Training_list(list_im, txt,use_simulate_images)
+	 local associated_images_Prop={im1={},im2={},im3={},im4={},Mode={}}
+	 local associated_images_Temp={im1={},im2={},im3={},im4={},Mode={}}
+	 local head_pan_indice=3
+	 if use_simulate_images then head_pan_indice=2 end
+	
+	local truth=getTruth(txt,use_simulate_images)
+
+	local tensor, label=tensorFromTxt(txt)
+	tensor=arrondit(tensor,head_pan_indice)
 
 -- TEMP : ici il est considéré que deux états proches sont potentiellement proche dans le temps
 	for i=1, #list_im do
+
+		--[[
 		value=tensor[i][head_pan_indice]
 		for j=i+1, #list_im do
 			if value==tensor[j][head_pan_indice] then
@@ -139,6 +204,7 @@ function create_Head_Training_list(list_im, txt,use_simulate_images)
 				table.insert(associated_images_Temp.Mode,'Temp')
 			end	
 		end
+		--]]
 
 -- we add every two images which are temporaly correlated
 -- it might add associated images that already linked before but it's not a problem
