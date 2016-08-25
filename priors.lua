@@ -117,6 +117,49 @@ function doStuff_Rep(Models,criterion,Batch)
 	return output[1]
 end
 
+function doStuff_Energie(Models,criterion,Batch)
+	im=Batch[1]:cuda()
+
+	Model=Models.Model1
+
+	State=Model:forward(im)
+	FM=Model:get(19)
+	
+	gmod = nn.gModule({h1}, {res})
+
+	criterion=criterion:cuda()
+	output=criterion:updateOutput({State})
+	GradOutputs=criterion:updateGradInput({State}, torch.ones(1))
+
+	-- this is a test:
+	-- the idea is to put a gradient on the top feature map before the MLP
+	-- then backwarding a nul gradient from the top the model
+	-- the weight wont change util reaching the top feature map
+	-- then the accumulation of gradient will take the gradient of the feature map and backarding through the network
+	FM:updateGradInput(Model:get(18).output,GradOutputs)
+	Model:backward(im1,State*0)
+
+	return ouput[1]
+end
+
+function fake_energie_criterion()
+	
+	h1=nn.Identity()()
+	view=nn.View(100)(h1)
+	mean=nn.Mean()(view)
+	diff=nn.AddConstant(nn.MulConstant(-1)(mean.output[1]))(view)
+	
+	sqrt=nn.Square()(diff)
+
+	std=nn.Mean()(sqrt)
+	diff2=nn.AddConstant(nn.MulConstant(-1)(std.output[1]))(sqrt)
+	sqrt2=nn.Square()(diff2)
+	res=nn.Mean()(sqrt2)
+
+	gmod = nn.gModule({h1}, {res})
+	return gmod
+end
+
 function get_Rep_criterion()
 	h1 = nn.Identity()()
 	h2 = nn.Identity()()
@@ -171,6 +214,8 @@ function get_Caus_criterion()
 	gmod = nn.gModule({h1, h2}, {out})
 	return gmod
 end
+
+
 
 
 

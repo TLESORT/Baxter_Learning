@@ -45,9 +45,13 @@ print(net:get(3).weight:size())
 --image.display({image=net:get(3).weight[1],zoom=10, legend='trained'})
 --image.display({image=net2:get(3).weight[1],zoom=10, legend='NoSharing'})
 --image.display({image=temoin:get(3).weight[1],zoom=10, legend='temoin'})
-image.display({image=net:get(10).output[1], legend='1'})
-image.display({image=net2:get(10).output[1], legend='2'})--NoSharing
-image.display({image=temoin:get(10).output[1], legend='3'})--temoin
+image.display({image=input, legend='input'})
+image.display({image=net:get(16).output, legend='Reconstruction WeightSharing'})
+image.display({image=net2:get(16).output, legend='Reconstruction  NoSharing'})--NoSharing
+
+image.display({image=net:get(10).output[1], legend='WeightSharing'})
+image.display({image=net2:get(10).output[1], legend='NoSharing'})--NoSharing
+image.display({image=temoin:get(10).output[1], legend='temoin'})--temoin
 
 image.display({image=net:get(11).output[1], legend='Noise'})
 

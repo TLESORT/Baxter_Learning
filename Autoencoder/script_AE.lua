@@ -17,13 +17,13 @@ require "../Get_HeadCamera_HeadMvt"
 cutorch.setDevice(2) 
 
 
-local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
+local use_simulate_images=true
+local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 
 require "../models/autoencoder_mini_model"
 AE=getAE()
 AE=AE:cuda()
 
-local list_t=images_Paths(list_folders_images[1])
 nbEpoch=10
 LR=0.001
 for epoch=1, nbEpoch do
@@ -46,15 +46,13 @@ for epoch=1, nbEpoch do
 			grad=criterion:backward(input,output)
 			AE:backward(input,grad*-1)
 			AE:updateParameters(LR)
-
-
-if i==1 and nbList%5=0 then
-image.display(image={input,output)
-save_model(AE,'../Save/AE_3x3_1TopFM.t7')
-end
 		end
 		xlua.progress(l, #list_folders_images)
 	end
+
+	
+	image.display({input,output})
+	save_model(AE,'../Save/AE_3x3_1TopFM.t7')
 	
 end
 

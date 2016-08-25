@@ -33,6 +33,15 @@ local function w_init_kaiming(fan_in, fan_out)
    return math.sqrt(4/(fan_in + fan_out))
 end
 
+local function w_init_kaiming(fan_in, fan_out)
+   return math.sqrt(4/(fan_in + fan_out))
+end
+
+local function w_init_zeros(fan_in, fan_out)
+   return math.sqrt(4/(fan_in + fan_out))*0
+end
+
+
 
 local function w_init(net, arg)
    -- choose initialization method
@@ -41,6 +50,7 @@ local function w_init(net, arg)
    elseif arg == 'xavier'       then method = w_init_xavier
    elseif arg == 'xavier_caffe' then method = w_init_xavier_caffe
    elseif arg == 'kaiming'      then method = w_init_kaiming
+   elseif arg == 'zeros'	then method = w_init_zeros
    else
       assert(false)
    end
