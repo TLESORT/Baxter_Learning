@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function :save_model(model,path) 
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ function save_model(model,path)
 end
 
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function : preprocessing(im, lenght, width, SpacialNormalization)
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ function preprocessing(im, lenght, width, SpacialNormalization)
 end
 
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function :getBatch(imgs, list, indice, lenght, width, height, Type) 
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -82,7 +82,7 @@ function getBatch(imgs, list, indice, lenght, width, height, Type)
 end
 
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function : getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_images)
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -113,7 +113,7 @@ function getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_ima
 end
 
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function :getRandomBatchFromSeparateList(imgs1, imgs2, txt1, txt2, lenght, image_width, image_height, Mode, use_simulate_images) 
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -148,7 +148,7 @@ function getRandomBatchFromSeparateList(imgs1, imgs2, txt1, txt2, lenght, image_
 end
 
 ---------------------------------------------------------------------------------------
--- Function : 
+-- Function :copy_weight(model, AE)
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
@@ -156,6 +156,59 @@ function copy_weight(model, AE)
 	model:get(1).weight:copy(AE:get(1).weight)
 	model:get(4).weight:copy(AE:get(5).weight)
 	return model
+end
+
+---------------------------------------------------------------------------------------
+-- Function : 
+-- Input ():
+-- Output ():
+---------------------------------------------------------------------------------------
+function real_loss(txt,use_simulate_images)
+
+	local REP_criterion=get_Rep_criterion()
+	local PROP_criterion=get_Prop_criterion()
+	local CAUS_criterion=get_Caus_criterion()
+	local TEMP_criterion=nn.MSDCriterion()
+	
+	local truth=getTruth(txt,use_simulate_images)
+	local temp_loss=0
+	local prop_loss=0
+	local rep_loss=0
+	local nb_sample=100
+	for i=0, nb_sample do
+		Set_prop=get_one_random_Prop_Set(txt ,use_simulate_images)
+		Set_temp=get_one_random_Temp_Set(#truth)
+
+joint1=torch.Tensor(1)
+joint2=torch.Tensor(1)
+joint3=torch.Tensor(1)
+joint4=torch.Tensor(1)
+
+		joint1[1]=truth[Set_temp.im1]
+		joint2[1]=truth[Set_temp.im2]		
+		temp_loss=temp_loss+TEMP_criterion:updateOutput({joint1, joint2})
+print("joint1: "..joint1[1])
+print("joint2: "..joint2[1])
+print("TEMP: "..TEMP_criterion:updateOutput({joint1, joint2}))
+		joint1[1]=truth[Set_prop.im1]
+		joint2[1]=truth[Set_prop.im2]
+		joint3[1]=truth[Set_prop.im3]
+		joint4[1]=truth[Set_prop.im4]
+		prop_loss=prop_loss+PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})
+		rep_loss=rep_loss+REP_criterion:updateOutput({joint1, joint2, joint3, joint4})
+
+
+print("joint1: "..joint1[1])
+print("joint2: "..joint2[1])
+print("joint3: "..joint3[1])
+print("joint4: "..joint4[1])		
+		print("PROP	: "..PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
+		print("REP		: "..REP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
+
+print("-----------------------------------------")
+	end
+
+	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample
 end
 
 ---------------------------------------------------------------------------------------
@@ -194,10 +247,11 @@ function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_image
 
 	-- biased estimation of test loss
 	local nb_sample=100
+
 	for i=1, nb_sample do
 		Prop_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Prop', use_simulate_images)
 		Temp_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Temp', use_simulate_images)
-
+		
 		Temp=Temp+doStuff_temp(Models,TEMP_criterion, Temp_batch)
 		Prop=Prop+doStuff_Prop(Models,PROP_criterion,Prop_batch)	
 		--loss=doStuff_Caus(Models,criterion,batch)
@@ -251,14 +305,16 @@ end
 
 ---------------------------------------------------------------------------------------
 -- Function : show_loss(list_train, list_test, Name , scale)
--- Input ():
--- Output ():
+-- Input (list_train): list of the train loss
+-- Input (list_test): list of the test loss
+-- Input (Name): Name of the file
+-- Input (scale): multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
 ---------------------------------------------------------------------------------------
 function show_loss(list_train, list_test, Name , scale)
 
 	local scale=scale or 1000
 	-- log results to files
-	accLogger = optim.Logger(Name)
+	local accLogger = optim.Logger(Name)
 
 	for i=1, #list_train do
 	-- update logger
@@ -266,12 +322,14 @@ function show_loss(list_train, list_test, Name , scale)
 	end
 	-- plot logger
 	accLogger:style{['train*'..scale] = '+',['test*'..scale] = '+'}
+	accLogger.showPlot = false
 	accLogger:plot()
 end
 ---------------------------------------------------------------------------------------
 -- Function : show_figure(list_out1, Name , scale)
--- Input ():
--- Output ():
+-- Input (list_out1): list of the estimate state
+-- Input (Name) : Name of the file
+-- Input (scale) : multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
 ---------------------------------------------------------------------------------------
 function show_figure(list_out1, Name , scale)
 
@@ -285,5 +343,6 @@ function show_figure(list_out1, Name , scale)
 	end
 	-- plot logger
 	accLogger:style{['out1'] = '+'}
+	accLogger.showPlot = false
 	accLogger:plot()
 end

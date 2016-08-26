@@ -16,7 +16,7 @@ require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
 function Rico_Training(Models, Mode,batch, criterion)
-	local LR=0.001
+	local LR=0.01
 	local mom=0.0
         local coefL2=0,0
 
@@ -60,7 +60,9 @@ end
 
 function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local BatchSize=12
-	nbEpoch=10
+	nbEpoch=100
+	local NbBatch=500
+
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
 	local CAUS_criterion=get_Caus_criterion()
@@ -73,18 +75,22 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local Temp_loss_list_test={}
 	local Prop_loss_list_test={}
 	local Rep_loss_list_test={}
-	
-	local NbBatch=1000
+
 	local last_indice=#list_folders_images
 	local list_truth=images_Paths(list_folders_images[last_indice])
 
 	imgs_test=load_list(list_truth)
 	txt_test=list_txt[last_indice]
 
-	local truth=getTruth(list_txt[last_indice],use_simulate_images)
+	local arrondit=false
+	local truth=getTruth(list_txt[last_indice],use_simulate_images,arrondit)
 	show_figure(truth, Log_Folder..'The_Truth.Log')
 	Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,use_simulate_images)
 
+	real_temp_loss,real_prop_loss,real_rep_loss=real_loss(list_txt[last_indice],use_simulate_images)
+	print("temp loss : "..real_temp_loss)
+	print("prop loss : "..real_prop_loss[1])
+	print("rep loss : "..real_rep_loss[1])
 	imgs={}
 	nbList= #list_folders_images
 	for i=1, nbList-1 do
@@ -101,10 +107,6 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 		local Prop_loss=0
 		local Rep_loss=0
 
-		local Temp_loss_tot=0
-		local Prop_loss_tot=0
-		local Rep_loss_tot=0
-
 		for numBatch=1, NbBatch do
 
 			indice1=math.random(1,nbList-1)
@@ -119,24 +121,20 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 			Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
 			Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
 
-			Temp_loss=Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
-			Prop_loss=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
-			Rep_loss=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
-
-			Temp_loss_tot=Temp_loss_tot+Temp_loss
-			Prop_loss_tot=Prop_loss_tot+Prop_loss
-			Rep_loss_tot=Rep_loss_tot+Rep_loss
+			--Temp_loss=Temp_loss+Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
+			--Prop_loss=Prop_loss+Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+			Rep_loss=Rep_loss+Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
 
 			xlua.progress(numBatch, NbBatch)
 		end
 		save_model(Models.Model1,name_save)
 		
 		local id=name..epoch -- variable used to not mix several log files
-		Temp_test,Prop_test,Rep_test=Print_performance(Models, imgs_test,txt_test,id.."_Test",Log_Folder,use_simulate_images)
+		Temp_test,Prop_test,Rep_test=Print_performance(Models, 		imgs_test,txt_test,id.."_Test",Log_Folder,use_simulate_images)
 
-		table.insert(Temp_loss_list,Temp_loss_tot/NbBatch)
-		table.insert(Prop_loss_list,Prop_loss_tot/NbBatch)
-		table.insert(Rep_loss_list,Rep_loss_tot/NbBatch)
+		table.insert(Temp_loss_list,Temp_loss/NbBatch)
+		table.insert(Prop_loss_list,Prop_loss/NbBatch)
+		table.insert(Rep_loss_list,Rep_loss/NbBatch)
 
 		table.insert(Temp_loss_list_test,Temp_test)
 		table.insert(Prop_loss_list_test,Prop_test)
@@ -148,17 +146,17 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	end
 end
 
-name='Save24_08_NoTrick'
+name='Save25_08_Rep'
 name_save='./Save/'..name..'.t7'
 name_load='./Save/'..name..'.t7'
 
-Log_Folder='./Log/Test_24_08/'
+Log_Folder='./Log/Rep_Only_25_08/'
 
 local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= true
+local UseSecondGPU= false
 local model_file='./models/topUniqueFM_Deeper'
 
 image_width=200
