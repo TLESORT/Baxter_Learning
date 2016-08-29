@@ -149,17 +149,17 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	end
 end
 
-name='Save29_08_3'
+name='Save29_08_4'
 name_save='./Save/'..name..'.t7'
 name_load='./Save/'..name..'.t7'
 
-Log_Folder='./Log/29_08/Everything/'
+Log_Folder='./Log/29_08/Everything/confirmation/'
 
 local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= true
+local UseSecondGPU= false
 local model_file='./models/topUniqueFM_Deeper'
 
 torch.manualSeed(123)
