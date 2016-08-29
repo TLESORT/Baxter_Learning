@@ -38,11 +38,9 @@ function doStuff_Caus(Models,criterion,Batch)
 	--we backward with a starting gradient initialized at 1
 	criterion:updateGradInput({State1, State2}, torch.ones(1))
 
-
 	-- calculer les gradients pour les deux images
 	Model:backward(im1,criterion.gradInput[1])
 	Model2:backward(im2,criterion.gradInput[2])
-
 	return output
 end
 

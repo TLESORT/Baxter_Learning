@@ -139,6 +139,10 @@ function getRandomBatchFromSeparateList(imgs1, imgs2, txt1, txt2, lenght, image_
 			Set=get_one_random_Temp_Set(#imgs1)
 			Batch[1][i]=imgs1[Set.im1]
 			Batch[2][i]=imgs1[Set.im2]
+		elseif Mode=="Caus" then
+			Set=get_one_random_Caus_Set(txt1, txt2, use_simulate_images)
+			Batch[1][i]=imgs1[Set.im1]
+			Batch[2][i]=imgs2[Set.im2]
 		else
 			print "getRandomBatch Wrong mode "
 		end
@@ -178,34 +182,28 @@ function real_loss(txt,use_simulate_images)
 	for i=0, nb_sample do
 		Set_prop=get_one_random_Prop_Set(txt ,use_simulate_images)
 		Set_temp=get_one_random_Temp_Set(#truth)
+		--Caus_temp=get_one_random_Caus_Set(#truth)
 
-joint1=torch.Tensor(1)
-joint2=torch.Tensor(1)
-joint3=torch.Tensor(1)
-joint4=torch.Tensor(1)
+		joint1=torch.Tensor(1)
+		joint2=torch.Tensor(1)
+		joint3=torch.Tensor(1)
+		joint4=torch.Tensor(1)
 
 		joint1[1]=truth[Set_temp.im1]
 		joint2[1]=truth[Set_temp.im2]		
 		temp_loss=temp_loss+TEMP_criterion:updateOutput({joint1, joint2})
-print("joint1: "..joint1[1])
-print("joint2: "..joint2[1])
-print("TEMP: "..TEMP_criterion:updateOutput({joint1, joint2}))
+
+--print("TEMP: "..TEMP_criterion:updateOutput({joint1, joint2}))
 		joint1[1]=truth[Set_prop.im1]
 		joint2[1]=truth[Set_prop.im2]
 		joint3[1]=truth[Set_prop.im3]
 		joint4[1]=truth[Set_prop.im4]
 		prop_loss=prop_loss+PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})
 		rep_loss=rep_loss+REP_criterion:updateOutput({joint1, joint2, joint3, joint4})
-
-
-print("joint1: "..joint1[1])
-print("joint2: "..joint2[1])
-print("joint3: "..joint3[1])
-print("joint4: "..joint4[1])		
-		print("PROP	: "..PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
-		print("REP		: "..REP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
-
-print("-----------------------------------------")
+		
+		--print("PROP	: "..PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
+		--print("REP		: "..REP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
+--print("-----------------------------------------")
 	end
 
 	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample

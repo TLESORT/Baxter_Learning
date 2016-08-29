@@ -16,37 +16,34 @@ require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
 function Rico_Training(Models, Mode,batch, criterion)
-	local LR=0.01
-	local mom=0.0
+	local LR=0.001
+	local mom=0.9
         local coefL2=0,0
 
-	parameters,gradParameters = Models.Model1:getParameters()
 	      -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
-         -- just in case:
-         collectgarbage()
+		 -- just in case:
+		 collectgarbage()
 
-         -- get new parameters
-         if x ~= parameters then
-            parameters:copy(x)
-         end
+		 -- get new parameters
+		 if x ~= parameters then
+		    parameters:copy(x)
+		 end
 
-         -- reset gradients
-        gradParameters:zero()
---	loss=doStuff_Energie(Models,fake_energie_criterion(),batch)
-
-	if Mode=='Simpl' then print("Simpl")
-	elseif Mode=='Temp' then loss=doStuff_temp(Models,criterion, batch)
-	elseif Mode=='Prop' then loss=doStuff_Prop(Models,criterion,batch)	
-	elseif Mode=='Caus' then loss=doStuff_Caus(Models,criterion,batch)
-	elseif Mode=='Rep' then loss=doStuff_Rep(Models,criterion,batch)
-	else print("Wrong Mode")
-	end
-
-         return loss,gradParameters
+		 -- reset gradients
+		gradParameters:zero()
+	--	loss=doStuff_Energie(Models,fake_energie_criterion(),batch)
+		if Mode=='Simpl' then print("Simpl")
+		elseif Mode=='Temp' then loss=doStuff_temp(Models,criterion, batch)
+		elseif Mode=='Prop' then loss=doStuff_Prop(Models,criterion,batch)	
+		elseif Mode=='Caus' then loss=doStuff_Caus(Models,criterion,batch)
+		elseif Mode=='Rep' then loss=doStuff_Rep(Models,criterion,batch)
+		else print("Wrong Mode")
+		end
+         	return loss,gradParameters
 	end
 	-- met à jour les parmetres avec les 2 gradients
-	         -- Perform SGD step:
+	-- Perform SGD step:
         sgdState = sgdState or { learningRate = LR, momentum = mom,learningRateDecay = 5e-7,weightDecay=coefL2 }
 
 	--state=state or {learningRate = LR,paramVariance=nil, weightDecay=0.0005 }
@@ -60,8 +57,8 @@ end
 
 function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local BatchSize=12
-	nbEpoch=100
-	local NbBatch=500
+	nbEpoch=50
+	local NbBatch=100
 
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
@@ -71,28 +68,30 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	local Temp_loss_list={}
 	local Prop_loss_list={}
 	local Rep_loss_list={}
+	local Caus_loss_list={}
 
 	local Temp_loss_list_test={}
 	local Prop_loss_list_test={}
 	local Rep_loss_list_test={}
+	local Caus_loss_list_test={}
 
-	local last_indice=#list_folders_images
-	local list_truth=images_Paths(list_folders_images[last_indice])
+	
+	nbList= #list_folders_images
+	local list_truth=images_Paths(list_folders_images[nbList])
 
 	imgs_test=load_list(list_truth)
-	txt_test=list_txt[last_indice]
+	txt_test=list_txt[nbList]
 
 	local arrondit=false
-	local truth=getTruth(list_txt[last_indice],use_simulate_images,arrondit)
+	local truth=getTruth(txt_test,use_simulate_images,arrondit)
 	show_figure(truth, Log_Folder..'The_Truth.Log')
 	Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,use_simulate_images)
 
-	real_temp_loss,real_prop_loss,real_rep_loss=real_loss(list_txt[last_indice],use_simulate_images)
+	real_temp_loss,real_prop_loss,real_rep_loss=real_loss(txt_test,use_simulate_images)
 	print("temp loss : "..real_temp_loss)
 	print("prop loss : "..real_prop_loss[1])
 	print("rep loss : "..real_rep_loss[1])
 	imgs={}
-	nbList= #list_folders_images
 	for i=1, nbList-1 do
 		list=images_Paths(list_folders_images[i])
 		table.insert(imgs,load_list(list,200,200))
@@ -106,11 +105,12 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 		local Temp_loss=0
 		local Prop_loss=0
 		local Rep_loss=0
+		local Caus_loss=0
 
 		for numBatch=1, NbBatch do
 
-			indice1=math.random(1,nbList-1)
-			indice2=math.random(1,nbList-1)
+			indice1=torch.random(1,nbList-1)
+			repeat indice2=torch.random(1,nbList-1) until (indice1 ~= indice2)
 
 			txt1=list_txt[indice1]
 			txt2=list_txt[indice2]
@@ -120,11 +120,12 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 
 			Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
 			Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
+			Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
 
-			--Temp_loss=Temp_loss+Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
-			--Prop_loss=Prop_loss+Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+			Temp_loss=Temp_loss+Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
+			Prop_loss=Prop_loss+Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
 			Rep_loss=Rep_loss+Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
-
+			Caus_loss=Caus_loss+Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
 			xlua.progress(numBatch, NbBatch)
 		end
 		save_model(Models.Model1,name_save)
@@ -134,11 +135,13 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 
 		table.insert(Temp_loss_list,Temp_loss/NbBatch)
 		table.insert(Prop_loss_list,Prop_loss/NbBatch)
-		table.insert(Rep_loss_list,Rep_loss/NbBatch)
+		table.insert(Rep_loss_list,Rep_loss/NbBatch)		
+		table.insert(Caus_loss_list,Caus_loss/NbBatch)
 
 		table.insert(Temp_loss_list_test,Temp_test)
 		table.insert(Prop_loss_list_test,Prop_test)
 		table.insert(Rep_loss_list_test,Rep_test)
+		table.insert(Caus_loss_list_test,Caus_test)
 
 		Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list,
 			Temp_loss_list_test,Prop_loss_list_test,Rep_loss_list_test,
@@ -146,18 +149,20 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	end
 end
 
-name='Save25_08_Rep'
+name='Save29_08_3'
 name_save='./Save/'..name..'.t7'
 name_load='./Save/'..name..'.t7'
 
-Log_Folder='./Log/Rep_Only_25_08/'
+Log_Folder='./Log/29_08/Everything/'
 
 local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= false
+local UseSecondGPU= true
 local model_file='./models/topUniqueFM_Deeper'
+
+torch.manualSeed(123)
 
 image_width=200
 image_height=200
@@ -180,6 +185,7 @@ else
 	Model=getModel(image_width,image_height)	
 end
 Model=Model:cuda()
+parameters,gradParameters = Model:getParameters()
 Model2=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
 Model3=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
 Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
