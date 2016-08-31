@@ -219,7 +219,7 @@ function get_two_Prop_Pair(txt1, txt2,use_simulate_images)
 		end
 		WatchDog=WatchDog+1
 	end
-	print("WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
+	print("PROP WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
 end
 
 
@@ -238,22 +238,28 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local tensor2, label=tensorFromTxt(txt2)
 
 	local rewarded_Joint=0
+	local rewarded_Joint2=0
+	local rewarded_Joint3=0
 
 	local delta_action=0
 
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
-	while WatchDog<100 do
+	while WatchDog<200 do
 		repeat
 			indice1=torch.random(1,size1)			
 			State1=tensor[indice1][head_pan_indice]
-		until(arrondit(State1)~=0)
-	
+		until(arrondit(State1)~=rewarded_Joint
+			and arrondit(State1)~=rewarded_Joint2
+			and arrondit(State1)~=rewarded_Joint3)
 		repeat
 			indice2=torch.random(1,size1)
 			State2=tensor[indice2][head_pan_indice]
-		until((arrondit(State2)~=0))
+		until(arrondit(State2)~=rewarded_Joint
+			and arrondit(State2)~=rewarded_Joint2
+			and arrondit(State2)~=rewarded_Joint3)
+
 		delta=State2-State1
 
 		vector=torch.randperm(size2) -- like this we sample uniformly the different possibility
@@ -265,18 +271,22 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 				id2=vector[j]
 				State4=tensor2[id2][head_pan_indice]
 				delta2=State4-State3
-				if arrondit(delta2-delta)==0 and arrondit(State4)==0 then
-					delta_action=(delta2-delta)^2
+				if arrondit(delta2-delta)==0 and 
+				(arrondit(State4)==rewarded_Joint 
+				or arrondit(State4)==rewarded_Joint2 
+				or arrondit(State4)==rewarded_Joint3)  then
 					return {im1=indice1,im2=id}
-				elseif arrondit(delta2+delta)==0 and arrondit(State3)==0 then
-					delta_action=(delta2-delta)^2
+				elseif arrondit(delta2+delta)==0 and
+				(arrondit(State3)==rewarded_Joint 
+				or arrondit(State3)==rewarded_Joint2 
+				or arrondit(State3)==rewarded_Joint3)  then
 					return {im1=indice1,im2=id2}
 				end
 			end
 		end
 		WatchDog=WatchDog+1
 	end
-	print("WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
+	print("CAUS WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
 end
 
 ---------------------------------------------------------------------------------------

@@ -1,5 +1,3 @@
-
-
 require 'nn'
 require 'optim'
 require 'image'
@@ -20,6 +18,11 @@ function Rico_Training(Models, Mode,batch, criterion)
 	local mom=0.9
         local coefL2=0,0
 
+	local coef_Temp=1
+	local coef_Prop=1
+	local coef_Caus=1
+	local coef_Rep=1
+
 	      -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
 		 -- just in case:
@@ -34,10 +37,10 @@ function Rico_Training(Models, Mode,batch, criterion)
 		gradParameters:zero()
 	--	loss=doStuff_Energie(Models,fake_energie_criterion(),batch)
 		if Mode=='Simpl' then print("Simpl")
-		elseif Mode=='Temp' then loss=doStuff_temp(Models,criterion, batch)
-		elseif Mode=='Prop' then loss=doStuff_Prop(Models,criterion,batch)	
-		elseif Mode=='Caus' then loss=doStuff_Caus(Models,criterion,batch)
-		elseif Mode=='Rep' then loss=doStuff_Rep(Models,criterion,batch)
+		elseif Mode=='Temp' then loss,grad=doStuff_temp(Models,criterion, batch,coef_Temp)
+		elseif Mode=='Prop' then loss,grad=doStuff_Prop(Models,criterion,batch,coef_Prop)
+		elseif Mode=='Caus' then loss,grad=doStuff_Caus(Models,criterion,batch,coef_Caus)
+		elseif Mode=='Rep' then loss,grad=doStuff_Rep(Models,criterion,batch,coef_Rep)
 		else print("Wrong Mode")
 		end
          	return loss,gradParameters
@@ -51,32 +54,40 @@ function Rico_Training(Models, Mode,batch, criterion)
 	--parameters, loss=optim.adagrad(feval, parameters,config, state)
 
 	parameters, loss=optim.sgd(feval, parameters, sgdState)
-	return loss[1] -- table of one value transformed in value
+
+	 -- loss[1] table of one value transformed in just a value
+	 -- grad[1] we use just the first gradient to print the figure (there are 2 or 4 gradient normally)
+	return loss[1], grad[1][1]
 end
 
 
-function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
+function train_Epoch(Models,list_folders_images,list_txt,Prior_Used,Log_Folder,use_simulate_images)
 	local BatchSize=12
-	nbEpoch=50
+	local nbEpoch=10
 	local NbBatch=100
+	
+	local name='Save'..day
+	local name_save=Log_Folder..name..'.t7'
 
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
 	local CAUS_criterion=get_Caus_criterion()
 	local TEMP_criterion=nn.MSDCriterion()
 
-	local Temp_loss_list={}
-	local Prop_loss_list={}
-	local Rep_loss_list={}
-	local Caus_loss_list={}
+	local Temp_loss_list, Prop_loss_list, Rep_loss_list, Caus_loss_list = {},{},{},{}
+	local Temp_loss_list_test,Prop_loss_list_test,Rep_loss_list_test,Caus_loss_list_test = {},{},{},{}
+	local Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list = {},{},{},{}		
+	local list_errors={}
 
-	local Temp_loss_list_test={}
-	local Prop_loss_list_test={}
-	local Rep_loss_list_test={}
-	local Caus_loss_list_test={}
+	local Prop=Have_Todo(Prior_Used,'Prop')
+	local Temp=Have_Todo(Prior_Used,'Temp')
+	local Rep=Have_Todo(Prior_Used,'Rep')
+	local Caus=Have_Todo(Prior_Used,'Caus')
+print(Prop)
+print(Temp)
+print(Rep)
+print(Caus)
 
-	
-	nbList= #list_folders_images
 	local list_truth=images_Paths(list_folders_images[nbList])
 
 	imgs_test=load_list(list_truth)
@@ -87,16 +98,11 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 	show_figure(truth, Log_Folder..'The_Truth.Log')
 	Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,use_simulate_images)
 
-	real_temp_loss,real_prop_loss,real_rep_loss=real_loss(txt_test,use_simulate_images)
+	real_temp_loss,real_prop_loss,real_rep_loss, real_caus_loss=real_loss(txt_test,use_simulate_images)
 	print("temp loss : "..real_temp_loss)
 	print("prop loss : "..real_prop_loss[1])
-	print("rep loss : "..real_rep_loss[1])
-	imgs={}
-	for i=1, nbList-1 do
-		list=images_Paths(list_folders_images[i])
-		table.insert(imgs,load_list(list,200,200))
-	end
-
+	print("rep loss : "..real_rep_loss[1])	
+	print("caus loss : "..real_caus_loss[1])
 			
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
@@ -121,17 +127,29 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 			Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
 			Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
 			Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
-
-			Temp_loss=Temp_loss+Rico_Training(Models, 'Temp',Batch_Temp, TEMP_criterion)
-			Prop_loss=Prop_loss+Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
-			Rep_loss=Rep_loss+Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
-			Caus_loss=Caus_loss+Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
+			
+			if Temp then
+				Loss,Grad_Temp=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion)
+ 				Temp_loss=Temp_loss+Loss
+			end
+			if Prop then 
+				Loss,Grad_Prop=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Prop_loss=Prop_loss+Loss
+			end
+			if Rep then 
+				Loss,Grad_Rep=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
+				Rep_loss=Rep_loss+Loss
+			end
+			if Caus then 
+				Loss,Grad_Caus=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
+				Caus_loss=Caus_loss+Loss
+			end
 			xlua.progress(numBatch, NbBatch)
 		end
 		save_model(Models.Model1,name_save)
 		
 		local id=name..epoch -- variable used to not mix several log files
-		Temp_test,Prop_test,Rep_test=Print_performance(Models, 		imgs_test,txt_test,id.."_Test",Log_Folder,use_simulate_images)
+		Temp_test,Prop_test,Rep_test,Caus_test, list_estimation=Print_performance(Models, imgs_test,txt_test,id.."_Test",Log_Folder,use_simulate_images)
 
 		table.insert(Temp_loss_list,Temp_loss/NbBatch)
 		table.insert(Prop_loss_list,Prop_loss/NbBatch)
@@ -143,17 +161,52 @@ function train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 		table.insert(Rep_loss_list_test,Rep_test)
 		table.insert(Caus_loss_list_test,Caus_test)
 
-		Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list,
-			Temp_loss_list_test,Prop_loss_list_test,Rep_loss_list_test,
+		table.insert(Temp_grad_list,Grad_Temp)
+		table.insert(Prop_grad_list,Grad_Prop)
+		table.insert(Rep_grad_list,Grad_Rep)
+		table.insert(Caus_grad_list,Grad_Caus)
+
+		Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list,Caus_loss_list,
+		Temp_loss_list_test,Prop_loss_list_test,Rep_loss_list_test,Caus_loss_list_test,
 			Log_Folder)
+
+
+		Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list,Log_Folder)
+
+		erreur_representation=representation_error(truth, list_estimation)
+		print("erreur de representation actuelle : "..erreur_representation)
+		table.insert(list_errors, erreur_representation)
+		show_figure(list_errors, Log_Folder..'Representation_Error.Log')
+		
 	end
+
 end
 
-name='Save29_08_4'
-name_save='./Save/'..name..'.t7'
-name_load='./Save/'..name..'.t7'
 
-Log_Folder='./Log/29_08/Everything/confirmation/'
+day="31_08_test"
+
+Tests_Todo={
+{"Prop","Temp","Caus","Rep"}}--[[,
+{"Rep","Caus"},
+{"Prop","Caus"},
+{"Temp","Caus"},
+{"Temp","Prop"},
+{"Rep","Prop"},
+{"Rep","Temp"},
+{"Rep"},
+{"Temp"},
+{"Caus"},
+{"Prop"},
+{"Rep","Caus","Prop"},
+{"Rep","Caus","Temp"},
+{"Rep","Prop","Temp"},
+{"Prop","Caus","Temp"},
+}--]]
+
+local Log_Folder='./Log/'..day..'/'
+
+
+name_load='./Log/Save/'..day..'.t7'
 
 local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
@@ -162,7 +215,6 @@ local TakeWeightFromAE=false
 local UseSecondGPU= false
 local model_file='./models/topUniqueFM_Deeper'
 
-torch.manualSeed(123)
 
 image_width=200
 image_height=200
@@ -171,26 +223,46 @@ if UseSecondGPU then
 	cutorch.setDevice(2) 
 end
 
-if reload then
-	Model = torch.load(name_load):double()
-elseif TakeWeightFromAE then
-	require './Autoencoder/noiseModule'
-	require(model_file)
-	Model=getModel(image_width,image_height)
-	AE= torch.load('./Save/AE_3x3_1TopFM.t7'):double()
-	print('AE\n' .. AE:__tostring());
-	Model=copy_weight(Model, AE)
-else
-	require(model_file)
-	Model=getModel(image_width,image_height)	
+nbList= #list_folders_images
+imgs={}
+for i=1, nbList-1 do
+	list=images_Paths(list_folders_images[i])
+	table.insert(imgs,load_list(list,200,200))
 end
-Model=Model:cuda()
-parameters,gradParameters = Model:getParameters()
-Model2=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
-Model3=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
-Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
 
-Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
 
-train_Epoch(Models, list_folders_images, list_txt,use_simulate_images)
 
+for nb_test=1, #Tests_Todo do
+
+	torch.manualSeed(123)
+
+	if reload then
+		Model = torch.load(name_load):double()
+	elseif TakeWeightFromAE then
+		require './Autoencoder/noiseModule'
+		require(model_file)
+		Model=getModel(image_width,image_height)
+		AE= torch.load('./Save/AE_3x3_1TopFM.t7'):double()
+		print('AE\n' .. AE:__tostring());
+		Model=copy_weight(Model, AE)
+	else
+		require(model_file)
+		Model=getModel(image_width,image_height)	
+	end
+	Model=Model:cuda()
+	parameters,gradParameters = Model:getParameters()
+	Model2=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+	Model3=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+	Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+
+	Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
+
+
+
+	local Priors=Tests_Todo[nb_test]
+	local Log_Folder=Get_Folder_Name(Log_Folder,Priors)
+	print("Test actuel : "..Log_Folder)
+	train_Epoch(Models,list_folders_images,list_txt,Priors,Log_Folder,use_simulate_images)
+end
+
+imgs={} --memory is free!!!!!

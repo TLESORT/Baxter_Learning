@@ -1,4 +1,6 @@
-function doStuff_temp(Models,criterion,Batch)
+function doStuff_temp(Models,criterion,Batch,coef)
+	
+	local coef= coef or 1
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
@@ -14,13 +16,15 @@ function doStuff_temp(Models,criterion,Batch)
 	GradOutputs=criterion:backward({State1,State2})
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,GradOutputs[1])
-	Model2:backward(im2,GradOutputs[2])
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
 
-	return loss
+	return loss, coef*GradOutputs[1]
 end
 
-function doStuff_Caus(Models,criterion,Batch)
+function doStuff_Caus(Models,criterion,Batch,coef)
+	
+	local coef= coef or 1
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
@@ -36,15 +40,18 @@ function doStuff_Caus(Models,criterion,Batch)
 	output=criterion:updateOutput({State1, State2})
 
 	--we backward with a starting gradient initialized at 1
-	criterion:updateGradInput({State1, State2}, torch.ones(1))
+	GradOutputs=criterion:updateGradInput({State1, State2}, torch.ones(1))
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,criterion.gradInput[1])
-	Model2:backward(im2,criterion.gradInput[2])
-	return output
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	return output[1], coef*GradOutputs[1]
 end
 
-function doStuff_Prop(Models,criterion,Batch)
+function doStuff_Prop(Models,criterion,Batch, coef)
+	
+	local coef= coef or 1
+
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	im3=Batch[3]:cuda()
@@ -68,15 +75,17 @@ function doStuff_Prop(Models,criterion,Batch)
 	--we backward with a starting gradient initialized at 1
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
-	Model:backward(im1,GradOutputs[1])
-	Model2:backward(im2,GradOutputs[2])
-	Model3:backward(im3,GradOutputs[3])
-	Model4:backward(im4,GradOutputs[4])
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	Model3:backward(im3,coef*GradOutputs[3])
+	Model4:backward(im4,coef*GradOutputs[4])
 
-	return output[1]
+	return output[1], coef*GradOutputs[1]
 end
 
-function doStuff_Rep(Models,criterion,Batch)
+function doStuff_Rep(Models,criterion,Batch, coef)
+	
+	local coef= coef or 1
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
@@ -93,26 +102,20 @@ function doStuff_Rep(Models,criterion,Batch)
 	State2=Model2:forward(im2)
 	State3=Model3:forward(im3)
 	State4=Model4:forward(im4)
--------------------------------------------------------------------------------------------
 
 	criterion=criterion:cuda()
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
-
-
-
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1)) 
 
---!!!!!!!!!!!!!!!!!!!!!!!!!!! coef added -> grad *2
-	local coef=2
 
 	Model:backward(im1,coef*GradOutputs[1])
 	Model2:backward(im2,coef*GradOutputs[2])
 	Model3:backward(im3,coef*GradOutputs[3])
 	Model4:backward(im4,coef*GradOutputs[4])
 
-	return output[1]
+	return output[1], coef*GradOutputs[1]
 end
 
 function doStuff_Energie(Models,criterion,Batch)

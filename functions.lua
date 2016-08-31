@@ -82,6 +82,38 @@ function getBatch(imgs, list, indice, lenght, width, height, Type)
 end
 
 ---------------------------------------------------------------------------------------
+-- Function : representation_error(list_real, list_estimation)
+-- Input ():
+-- Output ():
+---------------------------------------------------------------------------------------
+function representation_error(list_real, list_estimation)
+
+	Somme_Real=0
+	Somme_Estimation=0
+
+	assert(#list_real==#list_estimation)	
+	
+	--process cste normalisation
+	for i=1, #list_real do
+		Somme_Real=Somme_Real+list_real[i]
+		Somme_Estimation=Somme_Estimation+list_estimation[i]
+	end
+
+	Moyenne_Real=Somme_Real/#list_real
+	Moyenne_Estimation=Somme_Estimation/#list_estimation
+	erreur=0
+	erreur_tot=0
+	for j=1, #list_real do
+		State=(list_real[j]-Moyenne_Real)/Somme_Real
+		State_Estimation=(list_estimation[j]-Moyenne_Estimation)/Somme_Estimation
+		erreur=math.abs((State)-(State_Estimation)/State)
+		erreur_tot=erreur_tot+erreur
+	end
+
+	return (erreur_tot/#list_real)*100
+end
+
+---------------------------------------------------------------------------------------
 -- Function : getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_images)
 -- Input ():
 -- Output ():
@@ -105,11 +137,54 @@ function getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_ima
 			Set=get_one_random_Temp_Set(#imgs)
 			Batch[1][i]=imgs[Set.im1]
 			Batch[2][i]=imgs[Set.im2]
+		elseif Mode=="Caus" then
+			Set=get_one_random_Caus_Set(txt, txt, use_simulate_images)
+			Batch[1][i]=imgs[Set.im1]
+			Batch[2][i]=imgs[Set.im2]
 		else
 			print "getRandomBatch Wrong mode "
 		end
 	end
 	return Batch
+end
+
+
+---------------------------------------------------------------------------------------
+-- Function :	Have_Todo(list_prior,prior)
+-- Input ():
+-- Output ():
+---------------------------------------------------------------------------------------
+function Have_Todo(list_prior,prior)
+	local answer=false
+	if #list_prior~=0 then
+		for i=1, #list_prior do
+			if list_prior[i]==prior then answer=true end
+		end
+	end
+	return answer
+end
+
+
+---------------------------------------------------------------------------------------
+-- Function :	Get_Folder_Name(Log_Folder,Prior_Used)
+-- Input ():
+-- Output ():
+---------------------------------------------------------------------------------------
+function Get_Folder_Name(Log_Folder,list_prior)
+	name=''
+	if #list_prior~=0 then
+		if #list_prior==1 then
+			name=list_prior[1].."_Only"
+		elseif #list_prior==4 then
+			name='Everything'
+		else
+			name=list_prior[1]
+			for i=2, #list_prior do
+				name=name..'_'..list_prior[i]
+			end
+		end
+	end
+	return Log_Folder..name..'/'
 end
 
 ---------------------------------------------------------------------------------------
@@ -175,19 +250,27 @@ function real_loss(txt,use_simulate_images)
 	local TEMP_criterion=nn.MSDCriterion()
 	
 	local truth=getTruth(txt,use_simulate_images)
+
 	local temp_loss=0
 	local prop_loss=0
 	local rep_loss=0
+	local caus_loss=0
+
 	local nb_sample=100
+
 	for i=0, nb_sample do
 		Set_prop=get_one_random_Prop_Set(txt ,use_simulate_images)
 		Set_temp=get_one_random_Temp_Set(#truth)
-		--Caus_temp=get_one_random_Caus_Set(#truth)
+		Caus_temp=get_one_random_Caus_Set(txt, txt, use_simulate_images)
 
 		joint1=torch.Tensor(1)
 		joint2=torch.Tensor(1)
 		joint3=torch.Tensor(1)
 		joint4=torch.Tensor(1)
+
+		joint1[1]=truth[Caus_temp.im1]
+		joint2[1]=truth[Caus_temp.im2]		
+		caus_loss=caus_loss+CAUS_criterion:updateOutput({joint1, joint2})
 
 		joint1[1]=truth[Set_temp.im1]
 		joint2[1]=truth[Set_temp.im2]		
@@ -206,7 +289,7 @@ function real_loss(txt,use_simulate_images)
 --print("-----------------------------------------")
 	end
 
-	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample
+	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample, caus_loss/nb_sample
 end
 
 ---------------------------------------------------------------------------------------
@@ -224,6 +307,7 @@ function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_image
 	local Temp=0
 	local Rep=0
 	local Prop=0
+	local Caus=0
 	local Model=Models.Model1
 
 	local list_out1={}
@@ -238,8 +322,6 @@ function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_image
 		Model:forward(Data1)
 		local State1=Model.output[1]	
 
-			
-			
 		table.insert(list_out1,State1)
 	end
 
@@ -249,17 +331,46 @@ function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_image
 	for i=1, nb_sample do
 		Prop_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Prop', use_simulate_images)
 		Temp_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Temp', use_simulate_images)
+		Caus_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Caus', use_simulate_images)
 		
 		Temp=Temp+doStuff_temp(Models,TEMP_criterion, Temp_batch)
 		Prop=Prop+doStuff_Prop(Models,PROP_criterion,Prop_batch)	
-		--loss=doStuff_Caus(Models,criterion,batch)
+		Caus=Caus+doStuff_Caus(Models,CAUS_criterion,Caus_batch)
 		Rep=Rep+doStuff_Rep(Models,REP_criterion,Prop_batch)
 	end
 
 
 	show_figure(list_out1, Log_Folder..'state'..name..'.log', 1000)
 
-	return Temp/nb_sample,Prop/nb_sample, Rep/nb_sample
+	return Temp/nb_sample,Prop/nb_sample, Rep/nb_sample, Caus/nb_sample, list_out1
+end
+
+
+---------------------------------------------------------------------------------------
+-- Function : Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list)
+-- Input ():
+-- Output ():
+---------------------------------------------------------------------------------------
+function Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list,Log_Folder)
+
+	local scale= 1000
+	local Name = Log_Folder..'Grad.log'
+	local accLogger = optim.Logger(Name)
+
+	for i=1, #Temp_grad_list do
+	-- update logger
+		accLogger:add{['Temp_Grad*'..scale] = Temp_grad_list[i]*scale,
+				['Prop_Grad*'..scale] = Prop_grad_list[i]*scale,
+				['Rep_Grad*'..scale] = Rep_grad_list[i]*scale,
+				['Caus_Grad*'..scale] = Caus_grad_list[i]*scale}
+	end
+	-- plot logger
+	accLogger:style{['Temp_Grad*'..scale] = '-',
+			['Prop_Grad*'..scale] = '-',
+			['Rep_Grad*'..scale] = '-',
+			['Caus_Grad*'..scale] = '-'}
+	accLogger.showPlot = false
+	accLogger:plot()
 end
 
 ---------------------------------------------------------------------------------------
@@ -267,10 +378,11 @@ end
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function Print_Loss(Temp_Train,Prop_Train,Rep_Train,Temp_Test,Prop_Test,Rep_Test,Log_Folder)
+function Print_Loss(Temp_Train,Prop_Train,Rep_Train,Caus_Train,Temp_Test,Prop_Test,Rep_Test,Caus_Test,Log_Folder)
 	show_loss(Temp_Train,Temp_Test, Log_Folder..'Temp_loss.log', 1000)
 	show_loss(Prop_Train,Prop_Test, Log_Folder..'Prop_loss.log', 1000)
 	show_loss(Rep_Train,Rep_Test, Log_Folder..'Rep_loss.log', 1000)
+	show_loss(Caus_Train,Caus_Test, Log_Folder..'Caus_loss.log', 1000)
 end
 
 ---------------------------------------------------------------------------------------
@@ -319,17 +431,20 @@ function show_loss(list_train, list_test, Name , scale)
 		accLogger:add{['train*'..scale] = list_train[i]*scale,['test*'..scale] = list_test[i]*scale}
 	end
 	-- plot logger
-	accLogger:style{['train*'..scale] = '+',['test*'..scale] = '+'}
+	accLogger:style{['train*'..scale] = '-',['test*'..scale] = '-'}
 	accLogger.showPlot = false
 	accLogger:plot()
 end
+
 ---------------------------------------------------------------------------------------
 -- Function : show_figure(list_out1, Name , scale)
 -- Input (list_out1): list of the estimate state
 -- Input (Name) : Name of the file
 -- Input (scale) : multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
 ---------------------------------------------------------------------------------------
-function show_figure(list_out1, Name , scale)
+function show_figure(list_out1, Name , scale, Variable_Name)
+
+	Variable_Name=Variable_Name or 'out1'
 
 	local scale=scale or 1000
 	-- log results to files
@@ -337,10 +452,10 @@ function show_figure(list_out1, Name , scale)
 
 	for i=1, #list_out1 do
 	-- update logger
-		accLogger:add{['out1'] = list_out1[i]*scale}
+		accLogger:add{[Variable_Name] = list_out1[i]*scale}
 	end
 	-- plot logger
-	accLogger:style{['out1'] = '+'}
+	accLogger:style{[Variable_Name] = '+'}
 	accLogger.showPlot = false
 	accLogger:plot()
 end
