@@ -86,8 +86,8 @@ print(Caus)
 
 	local coef_Temp=1
 	local coef_Prop=1
-	local coef_Caus=1
-	local coef_Rep=1
+	local coef_Rep=5
+	local coef_Caus=0.5
 
 
 	local list_truth=images_Paths(list_folders_images[nbList])
@@ -130,27 +130,27 @@ print(Caus)
 
 			imgs1=imgs[indice1]
 			imgs2=imgs[indice2]
-
-			Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
-			Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
-			Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
 			
 			if Temp then
+				Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
 				Loss,Grad=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion, coef_Temp)
 				Grad_Temp=Grad_Temp+Grad
  				Temp_loss=Temp_loss+Loss
 			end
 			if Prop then 
+				Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
 				Loss,Grad=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion, coef_Prop)
 				Grad_Prop=Grad_Prop+Grad
 				Prop_loss=Prop_loss+Loss
 			end
 			if Rep then 
-				Loss,Grad=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion, coef_Rep)
+				Batch_Rep=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Rep", use_simulate_images)
+				Loss,Grad=Rico_Training(Models,'Rep',Batch_Rep, REP_criterion, coef_Rep)
 				Grad_Rep=Grad_Rep+Grad
 				Rep_loss=Rep_loss+Loss
 			end
 			if Caus then 
+				Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
 				Loss,Grad=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion, coef_Caus)
 				Grad_Caus=Grad_Caus+Grad
 				Caus_loss=Caus_loss+Loss
@@ -162,10 +162,10 @@ print(Caus)
 		local id=name..epoch -- variable used to not mix several log files
 		Temp_test,Prop_test,Rep_test,Caus_test, list_estimation=Print_performance(Models, imgs_test,txt_test,id.."_Test",Log_Folder,use_simulate_images)
 
-		table.insert(Temp_loss_list,Temp_loss/NbBatch)
-		table.insert(Prop_loss_list,Prop_loss/NbBatch)
-		table.insert(Rep_loss_list,Rep_loss/NbBatch)		
-		table.insert(Caus_loss_list,Caus_loss/NbBatch)
+		table.insert(Temp_loss_list,Temp_loss/(NbBatch*BatchSize))
+		table.insert(Prop_loss_list,Prop_loss/(NbBatch*BatchSize))
+		table.insert(Rep_loss_list,Rep_loss/(NbBatch*BatchSize))		
+		table.insert(Caus_loss_list,Caus_loss/(NbBatch*BatchSize))
 
 		table.insert(Temp_loss_list_test,Temp_test)
 		table.insert(Prop_loss_list_test,Prop_test)
@@ -194,10 +194,11 @@ print(Caus)
 end
 
 
-day="05_09"
+day="05_09_Doublereward_ecartVariable"
 
-Tests_Todo={
-{"Prop","Temp","Caus","Rep"}}--[[,
+Tests_Todo={{"Prop","Temp","Caus","Rep"}}
+--{"Prop","Temp","Caus","Rep"}}
+--[[,
 {"Rep","Caus"},
 {"Prop","Caus"},
 {"Temp","Caus"},
@@ -223,7 +224,7 @@ local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= false
+local UseSecondGPU= true
 local model_file='./models/topUniqueFM_Deeper'
 
 

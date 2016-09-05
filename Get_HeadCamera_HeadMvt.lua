@@ -143,27 +143,28 @@ function get_one_random_Prop_Set(txt,use_simulate_images)
 	tensor=tensor_arrondit(tensor, head_pan_indice)
 	local size=tensor:size(1)
 
+
+	local ecart=torch.random(1,2)
+
 	while WatchDog<100 do
-		indice1=torch.random(1,size)
-		indice2=torch.random(1,size)
+		indice1=torch.random(1,size-ecart)
+		indice2=indice1+ecart
 		State1=tensor[indice1][head_pan_indice]
 		State2=tensor[indice2][head_pan_indice]
 		delta=State1-State2
 
-		vector=torch.randperm(size) -- like this we sample uniformly the different possibility
+		vector=torch.randperm(size-ecart) -- like this we sample uniformly the different possibility
 
-		for i=1, size-1 do
+		for i=1, size-ecart do
 			id=vector[i]
 			State3=tensor[id][head_pan_indice]
-			for j=i+1, size do
-				id2=vector[j]
-				delta2=State3-tensor[id2][head_pan_indice]
-				if not ((indice1==id and indice2==id2)or (indice1==id2 and indice2==id)) then
-					if delta2==delta then
-						return {im1=indice1,im2=indice2,im3=id,im4=id2}
-					elseif delta2==delta*-1 then
-						return {im1=indice1,im2=indice2,im3=id2,im4=id}
-					end
+			id2=id+ecart
+			delta2=State3-tensor[id2][head_pan_indice]
+			if not ((indice1==id and indice2==id2)or (indice1==id2 and indice2==id)) then
+				if delta2==delta then
+					return {im1=indice1,im2=indice2,im3=id,im4=id2}
+				elseif delta2==delta*-1 then
+					return {im1=indice1,im2=indice2,im3=id2,im4=id}
 				end
 			end
 		end
@@ -187,34 +188,35 @@ function get_two_Prop_Pair(txt1, txt2,use_simulate_images)
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
 
+	local ecart=torch.random(1,2)
+
 	local delta_action=0
 
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
+
+	vector=torch.randperm(size2-ecart)
+
 	while WatchDog<100 do
-		indice1=torch.random(1,size1)
-		indice2=torch.random(1,size1)	
+		indice1=torch.random(1,size1-ecart)
+		indice2=indice1+ecart	
 		State1=tensor[indice1][head_pan_indice]
 		State2=tensor[indice2][head_pan_indice]
 		delta=State2-State1
 
-		vector=torch.randperm(size2) -- like this we sample uniformly the different possibility
-
-		for i=1, size2-1 do
+		for i=1, size2-ecart do
 			id=vector[i]
 			State3=tensor2[id][head_pan_indice]
-			for j=i+1, size2 do
-				id2=vector[j]
-				State4=tensor2[id2][head_pan_indice]
-				delta2=State4-State3
-				if arrondit(delta2-delta)==0 then
-					delta_action=(delta2-delta)^2
-					return {im1=indice1,im2=indice2,im3=id,im4=id2, delta=delta_action}
-				elseif arrondit(delta2+delta)==0 then
-					delta_action=(delta2-delta)^2
-					return {im1=indice1,im2=indice2,im3=id2,im4=id, delta=delta_action}
-				end
+			id2=id+ecart
+			State4=tensor2[id2][head_pan_indice]
+			delta2=State4-State3
+			if arrondit(delta2-delta)==0 then
+				delta_action=(delta2-delta)^2
+				return {im1=indice1,im2=indice2,im3=id,im4=id2, delta=delta_action}
+			elseif arrondit(delta2+delta)==0 then
+				delta_action=(delta2-delta)^2
+				return {im1=indice1,im2=indice2,im3=id2,im4=id, delta=delta_action}
 			end
 		end
 		WatchDog=WatchDog+1
@@ -237,51 +239,48 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
 
-	local rewarded_Joint=0
-	local rewarded_Joint2=0
-	local rewarded_Joint3=0
+	local rewarded_Joint=0.5
+	local rewarded_Joint2=-0.5
+	local rewarded_Joint3=0.5
 
-	local delta_action=0
+	local ecart=torch.random(1,2)
 
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
 	while WatchDog<200 do
 		repeat
-			indice1=torch.random(1,size1)			
+			indice1=torch.random(1,size1-ecart)			
 			State1=tensor[indice1][head_pan_indice]
+			indice2=indice1+ecart
+			State2=tensor[indice2][head_pan_indice]
 		until(arrondit(State1)~=rewarded_Joint
 			and arrondit(State1)~=rewarded_Joint2
-			and arrondit(State1)~=rewarded_Joint3)
-		repeat
-			indice2=torch.random(1,size1)
-			State2=tensor[indice2][head_pan_indice]
-		until(arrondit(State2)~=rewarded_Joint
+			and arrondit(State1)~=rewarded_Joint3
+			and arrondit(State2)~=rewarded_Joint
 			and arrondit(State2)~=rewarded_Joint2
 			and arrondit(State2)~=rewarded_Joint3)
 
 		delta=State2-State1
 
-		vector=torch.randperm(size2) -- like this we sample uniformly the different possibility
+		vector=torch.randperm(size2-ecart)
 
-		for i=1, size2-1 do
+		for i=1, size2-ecart do
 			id=vector[i]
 			State3=tensor2[id][head_pan_indice]
-			for j=i+1, size2 do
-				id2=vector[j]
-				State4=tensor2[id2][head_pan_indice]
-				delta2=State4-State3
-				if arrondit(delta2-delta)==0 and 
+			id2=id+ecart
+			State4=tensor2[id2][head_pan_indice]
+			delta2=State4-State3
+			if arrondit(delta2-delta)==0 and 
 				(arrondit(State4)==rewarded_Joint 
 				or arrondit(State4)==rewarded_Joint2 
-				or arrondit(State4)==rewarded_Joint3)  then
+				or arrondit(State4)==rewarded_Joint3) then
 					return {im1=indice1,im2=id}
-				elseif arrondit(delta2+delta)==0 and
+			elseif arrondit(delta2+delta)==0 and
 				(arrondit(State3)==rewarded_Joint 
 				or arrondit(State3)==rewarded_Joint2 
-				or arrondit(State3)==rewarded_Joint3)  then
+				or arrondit(State3)==rewarded_Joint3) then		
 					return {im1=indice1,im2=id2}
-				end
 			end
 		end
 		WatchDog=WatchDog+1
