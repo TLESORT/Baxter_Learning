@@ -113,6 +113,11 @@ print(Caus)
 		local Rep_loss=0
 		local Caus_loss=0
 
+		local Grad_Temp=0
+		local Grad_Prop=0
+		local Grad_Rep=0
+		local Grad_Caus=0
+
 		for numBatch=1, NbBatch do
 
 			indice1=torch.random(1,nbList-1)
@@ -129,19 +134,23 @@ print(Caus)
 			Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
 			
 			if Temp then
-				Loss,Grad_Temp=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion)
+				Loss,Grad=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion)
+				Grad_Temp=Grad_Temp+Grad
  				Temp_loss=Temp_loss+Loss
 			end
 			if Prop then 
-				Loss,Grad_Prop=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Loss,Grad=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Grad_Prop=Grad_Prop+Grad
 				Prop_loss=Prop_loss+Loss
 			end
 			if Rep then 
-				Loss,Grad_Rep=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
+				Loss,Grad=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
+				Grad_Rep=Grad_Rep+Grad
 				Rep_loss=Rep_loss+Loss
 			end
 			if Caus then 
-				Loss,Grad_Caus=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
+				Loss,Grad=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
+				Grad_Caus=Grad_Caus+Grad
 				Caus_loss=Caus_loss+Loss
 			end
 			xlua.progress(numBatch, NbBatch)
@@ -161,10 +170,10 @@ print(Caus)
 		table.insert(Rep_loss_list_test,Rep_test)
 		table.insert(Caus_loss_list_test,Caus_test)
 
-		table.insert(Temp_grad_list,Grad_Temp)
-		table.insert(Prop_grad_list,Grad_Prop)
-		table.insert(Rep_grad_list,Grad_Rep)
-		table.insert(Caus_grad_list,Grad_Caus)
+		table.insert(Temp_grad_list,Grad_Temp/NbBatch)
+		table.insert(Prop_grad_list,Grad_Prop/NbBatch)
+		table.insert(Rep_grad_list,Grad_Rep/NbBatch)
+		table.insert(Caus_grad_list,Grad_Caus/NbBatch)
 
 		Print_Loss(Temp_loss_list,Prop_loss_list,Rep_loss_list,Caus_loss_list,
 		Temp_loss_list_test,Prop_loss_list_test,Rep_loss_list_test,Caus_loss_list_test,
@@ -183,7 +192,7 @@ print(Caus)
 end
 
 
-day="31_08_test"
+day="01_09_WO-BN"
 
 Tests_Todo={
 {"Prop","Temp","Caus","Rep"}}--[[,
@@ -213,7 +222,7 @@ local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
 local UseSecondGPU= false
-local model_file='./models/topUniqueFM_Deeper'
+local model_file='./models/topUniqueFM_WO-BN'
 
 
 image_width=200
