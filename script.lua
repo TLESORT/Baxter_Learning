@@ -13,15 +13,11 @@ require 'functions.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
-function Rico_Training(Models, Mode,batch, criterion)
+function Rico_Training(Models, Mode,batch, criterion, coef)
 	local LR=0.001
 	local mom=0.9
         local coefL2=0,0
 
-	local coef_Temp=1
-	local coef_Prop=1
-	local coef_Caus=1
-	local coef_Rep=1
 
 	      -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
@@ -37,10 +33,10 @@ function Rico_Training(Models, Mode,batch, criterion)
 		gradParameters:zero()
 	--	loss=doStuff_Energie(Models,fake_energie_criterion(),batch)
 		if Mode=='Simpl' then print("Simpl")
-		elseif Mode=='Temp' then loss,grad=doStuff_temp(Models,criterion, batch,coef_Temp)
-		elseif Mode=='Prop' then loss,grad=doStuff_Prop(Models,criterion,batch,coef_Prop)
-		elseif Mode=='Caus' then loss,grad=doStuff_Caus(Models,criterion,batch,coef_Caus)
-		elseif Mode=='Rep' then loss,grad=doStuff_Rep(Models,criterion,batch,coef_Rep)
+		elseif Mode=='Temp' then loss,grad=doStuff_temp(Models,criterion, batch,coef)
+		elseif Mode=='Prop' then loss,grad=doStuff_Prop(Models,criterion,batch,coef)
+		elseif Mode=='Caus' then loss,grad=doStuff_Caus(Models,criterion,batch,coef)
+		elseif Mode=='Rep' then loss,grad=doStuff_Rep(Models,criterion,batch,coef)
 		else print("Wrong Mode")
 		end
          	return loss,gradParameters
@@ -88,6 +84,12 @@ print(Temp)
 print(Rep)
 print(Caus)
 
+	local coef_Temp=1
+	local coef_Prop=1
+	local coef_Caus=1
+	local coef_Rep=1
+
+
 	local list_truth=images_Paths(list_folders_images[nbList])
 
 	imgs_test=load_list(list_truth)
@@ -134,22 +136,22 @@ print(Caus)
 			Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
 			
 			if Temp then
-				Loss,Grad=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion)
+				Loss,Grad=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion, coef_Temp)
 				Grad_Temp=Grad_Temp+Grad
  				Temp_loss=Temp_loss+Loss
 			end
 			if Prop then 
-				Loss,Grad=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion)
+				Loss,Grad=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion, coef_Prop)
 				Grad_Prop=Grad_Prop+Grad
 				Prop_loss=Prop_loss+Loss
 			end
 			if Rep then 
-				Loss,Grad=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion)
+				Loss,Grad=Rico_Training(Models,'Rep',Batch_Prop, REP_criterion, coef_Rep)
 				Grad_Rep=Grad_Rep+Grad
 				Rep_loss=Rep_loss+Loss
 			end
 			if Caus then 
-				Loss,Grad=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion)
+				Loss,Grad=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion, coef_Caus)
 				Grad_Caus=Grad_Caus+Grad
 				Caus_loss=Caus_loss+Loss
 			end
@@ -192,7 +194,7 @@ print(Caus)
 end
 
 
-day="01_09_WO-BN"
+day="05_09"
 
 Tests_Todo={
 {"Prop","Temp","Caus","Rep"}}--[[,
@@ -222,7 +224,7 @@ local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
 local UseSecondGPU= false
-local model_file='./models/topUniqueFM_WO-BN'
+local model_file='./models/topUniqueFM_Deeper'
 
 
 image_width=200
