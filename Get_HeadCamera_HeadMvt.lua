@@ -239,11 +239,11 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
 
-	local rewarded_Joint=0.5
-	local rewarded_Joint2=-0.5
-	local rewarded_Joint3=0.5
+	local rewarded_Joint=0
+	local rewarded_Joint2=0
+	local rewarded_Joint3=0
 
-	local ecart=torch.random(1,2)
+	local ecart=1--torch.random(1,2)
 
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)

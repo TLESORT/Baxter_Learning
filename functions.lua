@@ -16,9 +16,8 @@ end
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function preprocessing(im, lenght, width, SpacialNormalization)
+function preprocessing(im, lenght, width,train)
 
-	local SpacialNormalization= (SpacialNormalization==nil and true) or SpacialNormalization
 		-- Name channels for convenience
 	local channels = {'y','u','v'}
 	local mean = {}
@@ -32,21 +31,68 @@ function preprocessing(im, lenght, width, SpacialNormalization)
 	   data[{i,{},{}}]:add(-mean[i])
 	   data[{i,{},{}}]:div(std[i])
 	end
+	--if train then data=dataAugmentation(data, lenght, width) end-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-------------------------------------------------------------------------------------------------------
+data2 = torch.Tensor( 1, lenght, width)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+data2[1]=data[1]
+-------------------------------------------------------------------------------------------------------
+	return data2
+end
 
-	--preprocessing data: normalize all three channels locally----------------
-	if SpacialNormalization then
-		-- Define the normalization neighborhood:
-		local neighborhood = image.gaussian1D(5) -- 5 for face detector training
-
-		-- Define our local normalization operator
-		local normalization = nn.SpatialContrastiveNormalization(1, neighborhood, 1e-4)
-
-		-- Normalize all channels locally:
-		for c in ipairs(channels) do
-		      data[{{c},{},{} }] = normalization:forward(data[{{c},{},{} }])
+local function gamma(im)
+	local Gamma= torch.Tensor(3,3)
+	local channels = {'y','u','v'}
+	local mean = {}
+	local std = {}
+	for i,channel in ipairs(channels) do
+		
+		for j,channel in ipairs(channels) do
+	   		if i==j then Gamma[i][i] = im[{i,{},{}}]:var()
+			else
+				chan_i=im[{i,{},{}}]-im[{i,{},{}}]:mean()
+				chan_j=im[{j,{},{}}]-im[{j,{},{}}]:mean()
+				Gamma[i][j]=(chan_i:t()*chan_j):mean()
+			end
 		end
 	end
-	return data
+
+	return Gamma
+end
+
+local function transformation(im, v,e)
+	local transfo=torch.Tensor(3,200,200)
+	local Gamma=torch.mv(v,e)
+	for i=1, 3 do
+		transfo[i]=im[i]+Gamma[i]
+	end
+ return transfo
+end
+
+---------------------------------------------------------------------------------------
+-- Function : dataAugmentation(im, lenght, width)
+-- Input ():
+-- Output ():
+-- goal : By using data augmentation we want or network to be more resistant to no task relevant perturbations like luminosity variation or noise
+---------------------------------------------------------------------------------------
+function dataAugmentation(im, lenght, width)
+	local channels = {'y','u','v'}
+
+	gam=gamma(im)
+	e, V = torch.eig(gam,'V')
+	factors=torch.randn(3)*0.1
+	for i=1,3 do e:select(2, 1)[i]=e:select(2, 1)[i]*factors[i] end
+	im=transformation(im, V,e:select(2, 1))
+	noise=torch.rand(3,lenght,width)
+	local mean = {}
+	local std = {}
+	for i,channel in ipairs(channels) do
+	   -- normalize each channel globally:
+	   mean[i] = noise[i]:mean()
+	   std[i] = noise[{i,{},{}}]:std()
+	   noise[{i,{},{}}]:add(-mean[i])
+	   noise[{i,{},{}}]:div(std[i])
+	end
+	return im--+noise
 end
 
 ---------------------------------------------------------------------------------------
@@ -63,17 +109,17 @@ function getBatch(imgs, list, indice, lenght, width, height, Type)
 		start=#list.im1-lenght
 	end
 	if Type=="Prop" then
-		Batch=torch.Tensor(4, lenght,3, width, height)
+		Batch=torch.Tensor(4, lenght,1, width, height)
 	else
-		Batch=torch.Tensor(2, lenght,3, width, height)
+		Batch=torch.Tensor(2, lenght,1, width, height)
 	end
 	
 	for i=1, lenght do
-		Batch[1][i]=imgs[list.im1[start+i]]
-		Batch[2][i]=imgs[list.im2[start+i]]
+		Batch[1][i]=imgs[list.im1[start+i][1]]
+		Batch[2][i]=imgs[list.im2[start+i][1]]
 		if Type=="Prop" then
-			Batch[3][i]=imgs[list.im3[start+i]]
-			Batch[4][i]=imgs[list.im4[start+i]]
+			Batch[3][i]=imgs[list.im3[start+i][1]]
+			Batch[4][i]=imgs[list.im4[start+i][1]]
 		end
 	end
 
@@ -121,26 +167,26 @@ end
 function getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_images)
 	
 	if Mode=="Prop" or Mode=="Rep" then
-		Batch=torch.Tensor(4, lenght,3, width, height)
+		Batch=torch.Tensor(4, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	else
-		Batch=torch.Tensor(2, lenght,3, width, height)
+		Batch=torch.Tensor(2, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	end
 	
 	for i=1, lenght do
 		if Mode=="Prop" or Mode=="Rep" then
 			Set=get_one_random_Prop_Set(txt ,use_simulate_images)
-			Batch[1][i]=imgs[Set.im1]
-			Batch[2][i]=imgs[Set.im2]
-			Batch[3][i]=imgs[Set.im3]
-			Batch[4][i]=imgs[Set.im4]
+			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[3][i][1]=imgs[Set.im3][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[4][i][1]=imgs[Set.im4][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		elseif Mode=="Temp" then
 			Set=get_one_random_Temp_Set(#imgs)
-			Batch[1][i]=imgs[Set.im1]
-			Batch[2][i]=imgs[Set.im2]
+			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		elseif Mode=="Caus" then
 			Set=get_one_random_Caus_Set(txt, txt, use_simulate_images)
-			Batch[1][i]=imgs[Set.im1]
-			Batch[2][i]=imgs[Set.im2]
+			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		else
 			print "getRandomBatch Wrong mode "
 		end
@@ -198,28 +244,28 @@ function getRandomBatchFromSeparateList(imgs1, imgs2, txt1, txt2, lenght, image_
 	local height=image_height or 200
 
 	if Mode=="Prop" or Mode=="Rep" then
-		Batch=torch.Tensor(4, lenght,3, width, height)
+		Batch=torch.Tensor(4, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	else
-		Batch=torch.Tensor(2, lenght,3, width, height)
+		Batch=torch.Tensor(2, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	end
 	
 	for i=1, lenght do
 		if Mode=="Prop" or Mode=="Rep" then
 			Set=get_two_Prop_Pair(txt1, txt2, use_simulate_images)
-			Batch[1][i]=imgs1[Set.im1]
-			Batch[2][i]=imgs1[Set.im2]
-			Batch[3][i]=imgs2[Set.im3]
-			Batch[4][i]=imgs2[Set.im4]
+			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs1[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[3][i][1]=imgs2[Set.im3][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[4][i][1]=imgs2[Set.im4][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		elseif Mode=="Temp" then
 			Set=get_one_random_Temp_Set(#imgs1)
-			Batch[1][i]=imgs1[Set.im1]
-			Batch[2][i]=imgs1[Set.im2]
+			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs1[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		elseif Mode=="Caus" then
 			Set=get_one_random_Caus_Set(txt1, txt2, use_simulate_images)
-			Batch[1][i]=imgs1[Set.im1]
-			Batch[2][i]=imgs2[Set.im2]
+			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[2][i][1]=imgs2[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		else
-			print "getRandomBatch Wrong mode "
+			print "getRandomBatchFromSeparateList Wrong mode "
 		end
 	end
 	return Batch
@@ -292,110 +338,19 @@ function real_loss(txt,use_simulate_images)
 	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample, caus_loss/nb_sample
 end
 
----------------------------------------------------------------------------------------
--- Function : 
--- Input ():
--- Output ():
----------------------------------------------------------------------------------------
-function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_images)
 
-	local REP_criterion=get_Rep_criterion()
-	local PROP_criterion=get_Prop_criterion()
-	local CAUS_criterion=get_Caus_criterion()
-	local TEMP_criterion=nn.MSDCriterion()
-
-	local Temp=0
-	local Rep=0
-	local Prop=0
-	local Caus=0
-	local Model=Models.Model1
-
-	local list_out1={}
-
-	for i=1, #imgs do
-		image1=imgs[i]
-		local Data1=image1:cuda()
-		ForthD= nn.Sequential()
-		ForthD:add(nn.Unsqueeze(1,3))
-		ForthD=ForthD:cuda()
-		Data1=ForthD:forward(Data1)
-		Model:forward(Data1)
-		local State1=Model.output[1]	
-
-		table.insert(list_out1,State1)
-	end
-
-	-- biased estimation of test loss
-	local nb_sample=100
-
-	for i=1, nb_sample do
-		Prop_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Prop', use_simulate_images)
-		Temp_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Temp', use_simulate_images)
-		Caus_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Caus', use_simulate_images)
-		
-		Temp=Temp+doStuff_temp(Models,TEMP_criterion, Temp_batch)
-		Prop=Prop+doStuff_Prop(Models,PROP_criterion,Prop_batch)	
-		Caus=Caus+doStuff_Caus(Models,CAUS_criterion,Caus_batch)
-		Rep=Rep+doStuff_Rep(Models,REP_criterion,Prop_batch)
-	end
-
-
-	show_figure(list_out1, Log_Folder..'state'..name..'.log', 1000)
-
-	return Temp/nb_sample,Prop/nb_sample, Rep/nb_sample, Caus/nb_sample, list_out1
-end
-
-
----------------------------------------------------------------------------------------
--- Function : Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list)
--- Input ():
--- Output ():
----------------------------------------------------------------------------------------
-function Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list,Log_Folder)
-
-	local scale= 1000
-	local Name = Log_Folder..'Grad.log'
-	local accLogger = optim.Logger(Name)
-
-	for i=1, #Temp_grad_list do
-	-- update logger
-		accLogger:add{['Temp_Grad*'..scale] = Temp_grad_list[i]*scale,
-				['Prop_Grad*'..scale] = Prop_grad_list[i]*scale,
-				['Rep_Grad*'..scale] = Rep_grad_list[i]*scale,
-				['Caus_Grad*'..scale] = Caus_grad_list[i]*scale}
-	end
-	-- plot logger
-	accLogger:style{['Temp_Grad*'..scale] = '-',
-			['Prop_Grad*'..scale] = '-',
-			['Rep_Grad*'..scale] = '-',
-			['Caus_Grad*'..scale] = '-'}
-	accLogger.showPlot = false
-	accLogger:plot()
-end
-
----------------------------------------------------------------------------------------
--- Function : Print_Loss(Temp_Train,Prop_Train,Rep_Train,Temp_Test,Prop_Test,Rep_Test,Log_Folder)
--- Input ():
--- Output ():
----------------------------------------------------------------------------------------
-function Print_Loss(Temp_Train,Prop_Train,Rep_Train,Caus_Train,Temp_Test,Prop_Test,Rep_Test,Caus_Test,Log_Folder)
-	show_loss(Temp_Train,Temp_Test, Log_Folder..'Temp_loss.log', 1000)
-	show_loss(Prop_Train,Prop_Test, Log_Folder..'Prop_loss.log', 1000)
-	show_loss(Rep_Train,Rep_Test, Log_Folder..'Rep_loss.log', 1000)
-	show_loss(Caus_Train,Caus_Test, Log_Folder..'Caus_loss.log', 1000)
-end
 
 ---------------------------------------------------------------------------------------
 -- Function : load_list(list,lenght,height)
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function load_list(list,lenght,height)
+function load_list(list,lenght,height, train)
 	im={}
 	lenght=lenght or 200
 	height=height or 200
 	for i=1, #list do
-		table.insert(im,getImage(list[i],lenght,height, false))
+		table.insert(im,getImage(list[i],lenght,height,train))
 	end 
 	return im
 end
@@ -405,57 +360,12 @@ end
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function getImage(im,length,height,SpacialNormalization)
+function getImage(im,length,height, train)
 	if im=='' or im==nil then return nil end
 	local image1=image.load(im,3,'byte')
 	local format=length.."x"..height
 	local img1_rsz=image.scale(image1,format)
-	return preprocessing(img1_rsz,length,height, SpacialNormalization)
+	return preprocessing(img1_rsz,length,height, train)
 end
 
----------------------------------------------------------------------------------------
--- Function : show_loss(list_train, list_test, Name , scale)
--- Input (list_train): list of the train loss
--- Input (list_test): list of the test loss
--- Input (Name): Name of the file
--- Input (scale): multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
----------------------------------------------------------------------------------------
-function show_loss(list_train, list_test, Name , scale)
 
-	local scale=scale or 1000
-	-- log results to files
-	local accLogger = optim.Logger(Name)
-
-	for i=1, #list_train do
-	-- update logger
-		accLogger:add{['train*'..scale] = list_train[i]*scale,['test*'..scale] = list_test[i]*scale}
-	end
-	-- plot logger
-	accLogger:style{['train*'..scale] = '-',['test*'..scale] = '-'}
-	accLogger.showPlot = false
-	accLogger:plot()
-end
-
----------------------------------------------------------------------------------------
--- Function : show_figure(list_out1, Name , scale)
--- Input (list_out1): list of the estimate state
--- Input (Name) : Name of the file
--- Input (scale) : multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
----------------------------------------------------------------------------------------
-function show_figure(list_out1, Name , scale, Variable_Name)
-
-	Variable_Name=Variable_Name or 'out1'
-
-	local scale=scale or 1000
-	-- log results to files
-	accLogger = optim.Logger(Name)
-
-	for i=1, #list_out1 do
-	-- update logger
-		accLogger:add{[Variable_Name] = list_out1[i]*scale}
-	end
-	-- plot logger
-	accLogger:style{[Variable_Name] = '+'}
-	accLogger.showPlot = false
-	accLogger:plot()
-end

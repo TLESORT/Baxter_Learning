@@ -15,8 +15,8 @@ require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
 function rescale_10_200(im)
-	img_rescale=torch.Tensor(3,200, 200)
-	for i=1, 3 do
+	img_rescale=torch.Tensor(1,200, 200)
+	for i=1, 1 do
 		for j=1,200 do
 			for l=1,200 do
 				img_rescale[i][j][l]=im[math.ceil(j/20)][math.ceil(l/20)]
@@ -41,9 +41,11 @@ local function clampImage(tensor)
 end
 
 --net = torch.load('model-test.t7'):double()
-net = torch.load('./Save/Save24_08_NoTrick.t7'):double()
+net = torch.load('./Log/09_09_GreyScale2/Everything/Save09_09_GreyScale2.t7'):double()
 print('net\n' .. net:__tostring());
 --net=net:cuda()
+
+cutorch.setDevice(2) 
 
 local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
@@ -70,34 +72,34 @@ local State1=net.output[1]
 
 
 nbIm=#list
-imgs=load_list(list, 200, 200)
+imgs=load_list(list, 200, 200, false)
 for i=1, nbIm do
-	Batch=torch.Tensor(1,3, 200, 200)
-	Batch[1]=imgs[i]
+	Batch=torch.Tensor(1,1, 200, 200)
+	Batch[1][1]=imgs[i][1]
 	net:forward(Batch)
 	--image.display{image=net:get(19).output[1], nrow=16,  zoom=10, legend="image"..i}
 	im=net:get(19).output[1]
 	--local format="200x200"
-	--local img_rsz=image.scale(im,format)
-
 	img_rsz=rescale_10_200(im[1])
 	salience=torch.cmul(img_rsz,Batch[1])
 
 
 
-
+	--image.display{image=img_rsz}
 	--image.display{image=net:get(15).output[1][10], nrow=16,  zoom=5}
 	--image.display{image=net:get(16).output[1], nrow=16,  zoom=20}
 	img=torch.cat(torch.cat(img_rsz,salience,3),Batch[1],3)
 	tensor= clampImage(img)
-	filename=paths.home.."/Bureau/Resultat_non_supervise/Temp_only/image"..i..".jpg"
+	filename=paths.home.."/Bureau/Resultat_non_supervise/09_09_GrayScale/Everything/image"..i..".jpg"
 	image.save(filename,tensor)
 end
-im=im[1]
+
+im=net:get(19).output[1][1]
 min=im:min()
 max=im:max()
 im:add(-min)
 im:mul(256/(max-min))
+im=im:ceil()
 	
 prob=torch.zeros(256)
 for j=1,256 do
