@@ -31,12 +31,9 @@ function preprocessing(im, lenght, width,train)
 	   data[{i,{},{}}]:add(-mean[i])
 	   data[{i,{},{}}]:div(std[i])
 	end
-	--if train then data=dataAugmentation(data, lenght, width) end-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--------------------------------------------------------------------------------------------------------
-data2 = torch.Tensor( 1, lenght, width)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-data2[1]=data[1]
--------------------------------------------------------------------------------------------------------
-	return data2
+	if train then data=dataAugmentation(data, lenght, width) end
+
+	return data
 end
 
 local function gamma(im)
@@ -115,11 +112,11 @@ function getBatch(imgs, list, indice, lenght, width, height, Type)
 	end
 	
 	for i=1, lenght do
-		Batch[1][i]=imgs[list.im1[start+i][1]]
-		Batch[2][i]=imgs[list.im2[start+i][1]]
+		Batch[1][i]=imgs[list.im1[start+i]]
+		Batch[2][i]=imgs[list.im2[start+i]]
 		if Type=="Prop" then
-			Batch[3][i]=imgs[list.im3[start+i][1]]
-			Batch[4][i]=imgs[list.im4[start+i][1]]
+			Batch[3][i]=imgs[list.im3[start+i]]
+			Batch[4][i]=imgs[list.im4[start+i]]
 		end
 	end
 
@@ -167,26 +164,26 @@ end
 function getRandomBatch(imgs, txt, lenght, width, height, Mode, use_simulate_images)
 	
 	if Mode=="Prop" or Mode=="Rep" then
-		Batch=torch.Tensor(4, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		Batch=torch.Tensor(4, lenght,3, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	else
-		Batch=torch.Tensor(2, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		Batch=torch.Tensor(2, lenght,3, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	end
 	
 	for i=1, lenght do
 		if Mode=="Prop" or Mode=="Rep" then
 			Set=get_one_random_Prop_Set(txt ,use_simulate_images)
-			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[3][i][1]=imgs[Set.im3][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[4][i][1]=imgs[Set.im4][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs[Set.im1]
+			Batch[2][i]=imgs[Set.im2]
+			Batch[3][i]=imgs[Set.im3]
+			Batch[4][i]=imgs[Set.im4]
 		elseif Mode=="Temp" then
 			Set=get_one_random_Temp_Set(#imgs)
-			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs[Set.im1]
+			Batch[2][i]=imgs[Set.im2]
 		elseif Mode=="Caus" then
 			Set=get_one_random_Caus_Set(txt, txt, use_simulate_images)
-			Batch[1][i][1]=imgs[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs[Set.im1]
+			Batch[2][i]=imgs[Set.im2]
 		else
 			print "getRandomBatch Wrong mode "
 		end
@@ -244,26 +241,26 @@ function getRandomBatchFromSeparateList(imgs1, imgs2, txt1, txt2, lenght, image_
 	local height=image_height or 200
 
 	if Mode=="Prop" or Mode=="Rep" then
-		Batch=torch.Tensor(4, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		Batch=torch.Tensor(4, lenght,3, width, height)
 	else
-		Batch=torch.Tensor(2, lenght,1, width, height)-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		Batch=torch.Tensor(2, lenght,3, width, height)
 	end
 	
 	for i=1, lenght do
 		if Mode=="Prop" or Mode=="Rep" then
 			Set=get_two_Prop_Pair(txt1, txt2, use_simulate_images)
-			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs1[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[3][i][1]=imgs2[Set.im3][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[4][i][1]=imgs2[Set.im4][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs1[Set.im1]
+			Batch[2][i]=imgs1[Set.im2]
+			Batch[3][i]=imgs2[Set.im3]
+			Batch[4][i]=imgs2[Set.im4]
 		elseif Mode=="Temp" then
 			Set=get_one_random_Temp_Set(#imgs1)
-			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs1[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs1[Set.im1]
+			Batch[2][i]=imgs1[Set.im2]
 		elseif Mode=="Caus" then
 			Set=get_one_random_Caus_Set(txt1, txt2, use_simulate_images)
-			Batch[1][i][1]=imgs1[Set.im1][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			Batch[2][i][1]=imgs2[Set.im2][1]-- change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			Batch[1][i]=imgs1[Set.im1]
+			Batch[2][i]=imgs2[Set.im2]
 		else
 			print "getRandomBatchFromSeparateList Wrong mode "
 		end
@@ -322,17 +319,12 @@ function real_loss(txt,use_simulate_images)
 		joint2[1]=truth[Set_temp.im2]		
 		temp_loss=temp_loss+TEMP_criterion:updateOutput({joint1, joint2})
 
---print("TEMP: "..TEMP_criterion:updateOutput({joint1, joint2}))
 		joint1[1]=truth[Set_prop.im1]
 		joint2[1]=truth[Set_prop.im2]
 		joint3[1]=truth[Set_prop.im3]
 		joint4[1]=truth[Set_prop.im4]
 		prop_loss=prop_loss+PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})
 		rep_loss=rep_loss+REP_criterion:updateOutput({joint1, joint2, joint3, joint4})
-		
-		--print("PROP	: "..PROP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
-		--print("REP		: "..REP_criterion:updateOutput({joint1, joint2, joint3, joint4})[1])
---print("-----------------------------------------")
 	end
 
 	return temp_loss/nb_sample, prop_loss/nb_sample, rep_loss/nb_sample, caus_loss/nb_sample

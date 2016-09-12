@@ -10,6 +10,7 @@ require 'nngraph'
 
 require 'MSDC'
 require 'functions.lua'
+require 'printing.lua'
 require "Get_HeadCamera_HeadMvt"
 require 'priors'
 
@@ -44,11 +45,6 @@ function Rico_Training(Models, Mode,batch, criterion, coef)
 	-- met à jour les parmetres avec les 2 gradients
 	-- Perform SGD step:
         sgdState = sgdState or { learningRate = LR, momentum = mom,learningRateDecay = 5e-7,weightDecay=coefL2 }
-
-	--state=state or {learningRate = LR,paramVariance=nil, weightDecay=0.0005 }
-	--config=config or {}
-	--parameters, loss=optim.adagrad(feval, parameters,config, state)
-
 	parameters, loss=optim.sgd(feval, parameters, sgdState)
 
 	 -- loss[1] table of one value transformed in just a value
@@ -59,7 +55,7 @@ end
 
 function train_Epoch(Models,list_folders_images,list_txt,Prior_Used,Log_Folder,use_simulate_images)
 	local BatchSize=12
-	local nbEpoch=10
+	local nbEpoch=20
 	local NbBatch=100
 	
 	local name='Save'..day
@@ -84,7 +80,7 @@ print(Temp)
 print(Rep)
 print(Caus)
 
-	local coef_Temp=1
+	local coef_Temp=10
 	local coef_Prop=1
 	local coef_Rep=5
 	local coef_Caus=0.5
@@ -92,7 +88,7 @@ print(Caus)
 
 	local list_truth=images_Paths(list_folders_images[nbList])
 
-	imgs_test=load_list(list_truth)
+	imgs_test=load_list(list_truth,image_width,image_height,false)
 	txt_test=list_txt[nbList]
 
 	local arrondit=false
@@ -120,6 +116,14 @@ print(Caus)
 		local Grad_Rep=0
 		local Grad_Caus=0
 
+		if torch.random(1,10)==10 then --time to time we reload every images to change the dataAugmentation
+			imgs={}
+			for i=1, nbList-1 do
+				list=images_Paths(list_folders_images[i])
+				table.insert(imgs,load_list(list,image_width,image_height,true))
+			end
+		end
+
 		for numBatch=1, NbBatch do
 
 			indice1=torch.random(1,nbList-1)
@@ -132,25 +136,25 @@ print(Caus)
 			imgs2=imgs[indice2]
 			
 			if Temp then
-				Batch_Temp=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Temp", use_simulate_images)
+				Batch_Temp=getRandomBatchFromSeparateList(imgs1,imgs2,txt1,txt2,BatchSize,image_width,image_height,"Temp", use_simulate_images)
 				Loss,Grad=Rico_Training(Models,'Temp',Batch_Temp, TEMP_criterion, coef_Temp)
 				Grad_Temp=Grad_Temp+Grad
  				Temp_loss=Temp_loss+Loss
 			end
 			if Prop then 
-				Batch_Prop=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Prop", use_simulate_images)
+				Batch_Prop=getRandomBatchFromSeparateList(imgs1,imgs2,txt1,txt2,BatchSize,image_width,image_height,"Prop", use_simulate_images)
 				Loss,Grad=Rico_Training(Models, 'Prop',Batch_Prop, PROP_criterion, coef_Prop)
 				Grad_Prop=Grad_Prop+Grad
 				Prop_loss=Prop_loss+Loss
 			end
 			if Rep then 
-				Batch_Rep=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Rep", use_simulate_images)
+				Batch_Rep=getRandomBatchFromSeparateList(imgs1,imgs2,txt1,txt2,BatchSize,image_width,image_height,"Rep", use_simulate_images)
 				Loss,Grad=Rico_Training(Models,'Rep',Batch_Rep, REP_criterion, coef_Rep)
 				Grad_Rep=Grad_Rep+Grad
 				Rep_loss=Rep_loss+Loss
 			end
 			if Caus then 
-				Batch_Caus=getRandomBatchFromSeparateList(imgs1, imgs2, txt1,txt2, BatchSize, image_width, image_height, "Caus", use_simulate_images)
+				Batch_Caus=getRandomBatchFromSeparateList(imgs1,imgs2,txt1,txt2,BatchSize,image_width,image_height,"Caus", use_simulate_images)
 				Loss,Grad=Rico_Training(Models, 'Caus',Batch_Caus, CAUS_criterion, coef_Caus)
 				Grad_Caus=Grad_Caus+Grad
 				Caus_loss=Caus_loss+Loss
@@ -194,11 +198,11 @@ print(Caus)
 end
 
 
-day="05_09_Doublereward_ecartVariable"
+day="12_09"
+local UseSecondGPU= true
 
 Tests_Todo={{"Prop","Temp","Caus","Rep"}}
---{"Prop","Temp","Caus","Rep"}}
---[[,
+--[[{"Prop","Temp","Caus","Rep"}},
 {"Rep","Caus"},
 {"Prop","Caus"},
 {"Temp","Caus"},
@@ -224,7 +228,6 @@ local use_simulate_images=true
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt(use_simulate_images)
 local reload=false
 local TakeWeightFromAE=false
-local UseSecondGPU= true
 local model_file='./models/topUniqueFM_Deeper'
 
 
@@ -239,7 +242,7 @@ nbList= #list_folders_images
 imgs={}
 for i=1, nbList-1 do
 	list=images_Paths(list_folders_images[i])
-	table.insert(imgs,load_list(list,200,200))
+	table.insert(imgs,load_list(list,image_width,image_height,true))
 end
 
 
