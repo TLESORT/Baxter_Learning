@@ -12,20 +12,18 @@ function doStuff_temp(Models,criterion,Batch,coef)
 	State2=Model2:forward(im2)
 
 	criterion=criterion:cuda()
-	loss=criterion:forward({State1,State2})
-	GradOutputs=criterion:backward({State1,State2})
+	loss=criterion:forward({State2,State1})
+	GradOutputs=criterion:backward({State2,State1})
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[1])
-	Model2:backward(im2,coef*GradOutputs[2])
-
-	return loss, coef*GradOutputs[1]
+	Model:backward(im1,coef*GradOutputs[2])
+	Model2:backward(im2,coef*GradOutputs[1])
+	return loss, coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
 function doStuff_Caus(Models,criterion,Batch,coef)
-	
-	local coef= coef or 1
 
+	local coef= coef or 1
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	
@@ -38,14 +36,13 @@ function doStuff_Caus(Models,criterion,Batch,coef)
 
 	criterion=criterion:cuda()
 	output=criterion:updateOutput({State1, State2})
-
 	--we backward with a starting gradient initialized at 1
 	GradOutputs=criterion:updateGradInput({State1, State2}, torch.ones(1))
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[1])
-	Model2:backward(im2,coef*GradOutputs[2])
-	return output[1], coef*GradOutputs[1]
+	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
 function doStuff_Prop(Models,criterion,Batch, coef)
@@ -73,14 +70,14 @@ function doStuff_Prop(Models,criterion,Batch, coef)
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
-	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
+	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4},torch.ones(1))
 
-	Model:backward(im1,coef*GradOutputs[1])
-	Model2:backward(im2,coef*GradOutputs[2])
-	Model3:backward(im3,coef*GradOutputs[3])
-	Model4:backward(im4,coef*GradOutputs[4])
+	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
+	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
 
-	return output[1], coef*GradOutputs[1]
+	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
 function doStuff_Rep(Models,criterion,Batch, coef)
@@ -107,58 +104,15 @@ function doStuff_Rep(Models,criterion,Batch, coef)
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
-	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1)) 
+	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
 
-	Model:backward(im1,coef*GradOutputs[1])
-	Model2:backward(im2,coef*GradOutputs[2])
-	Model3:backward(im3,coef*GradOutputs[3])
-	Model4:backward(im4,coef*GradOutputs[4])
+	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
+	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
 
-	return output[1], coef*GradOutputs[1]
-end
-
-function doStuff_Energie(Models,criterion,Batch)
-	im=Batch[1]:cuda()
-
-	Model=Models.Model1
-
-	State=Model:forward(im)
-	FM=Model:get(19)
-	
-	gmod = nn.gModule({h1}, {res})
-
-	criterion=criterion:cuda()
-	output=criterion:updateOutput({State})
-	GradOutputs=criterion:updateGradInput({State}, torch.ones(1))
-
-	-- this is a test:
-	-- the idea is to put a gradient on the top feature map before the MLP
-	-- then backwarding a nul gradient from the top the model
-	-- the weight wont change util reaching the top feature map
-	-- then the accumulation of gradient will take the gradient of the feature map and backarding through the network
-	FM:updateGradInput(Model:get(18).output,GradOutputs)
-	Model:backward(im1,State*0)
-
-	return ouput[1]
-end
-
-function fake_energie_criterion()
-	
-	h1=nn.Identity()()
-	view=nn.View(100)(h1)
-	mean=nn.Mean()(view)
-	diff=nn.AddConstant(nn.MulConstant(-1)(mean.output[1]))(view)
-	
-	sqrt=nn.Square()(diff)
-
-	std=nn.Mean()(sqrt)
-	diff2=nn.AddConstant(nn.MulConstant(-1)(std.output[1]))(sqrt)
-	sqrt2=nn.Square()(diff2)
-	res=nn.Mean()(sqrt2)
-
-	gmod = nn.gModule({h1}, {res})
-	return gmod
+	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
 function get_Rep_criterion()

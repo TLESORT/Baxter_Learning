@@ -3,7 +3,7 @@
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_images)
+function Print_performance(Models,imgs,txt, name, Log_Folder,truth)
 
 	local REP_criterion=get_Rep_criterion()
 	local PROP_criterion=get_Prop_criterion()
@@ -29,110 +29,65 @@ function Print_performance(Models,imgs,txt, name, Log_Folder, use_simulate_image
 		table.insert(list_out1,State1)
 	end
 
-	-- biased estimation of test loss
-	local nb_sample=100
+	corr=ComputeCorrelation(truth,list_out1)
+	show_figure(list_out1, Log_Folder..'state'..name..'.log')
+	show_figure_normalized(list_out1,truth, Log_Folder..'stateNorm'..name..'.log',corr)
+end
 
-	for i=1, nb_sample do
-		Prop_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Prop', use_simulate_images)
-		Temp_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Temp', use_simulate_images)
-		Caus_batch=getRandomBatch(imgs, txt, 1, 200, 200, 'Caus', use_simulate_images)
-		
-		Temp=Temp+doStuff_temp(Models,TEMP_criterion, Temp_batch)
-		Prop=Prop+doStuff_Prop(Models,PROP_criterion,Prop_batch)	
-		Caus=Caus+doStuff_Caus(Models,CAUS_criterion,Caus_batch)
-		Rep=Rep+doStuff_Rep(Models,REP_criterion,Prop_batch)
+function ComputeCorrelation(truth,output)
+	Truth=torch.Tensor(#truth)
+	Output=torch.Tensor(#output)
+	for i=1, #truth do
+			Truth[i]=truth[i]
+			Output[i]=output[i]
 	end
+	corr=torch.cmul((Truth-Truth:mean()),(Output-Output:mean())):mean()
+	corr=corr/(Truth:std()*Output:std())
 
-
-	show_figure(list_out1, Log_Folder..'state'..name..'.log', 1000)
-
-	return Temp/nb_sample,Prop/nb_sample, Rep/nb_sample, Caus/nb_sample, list_out1
+	print("Coorelation")
+	print(corr)
+	return corr
 end
 
+function show_figure_normalized(output,truth, Name, corr)
 
----------------------------------------------------------------------------------------
--- Function : Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list)
--- Input ():
--- Output ():
----------------------------------------------------------------------------------------
-function Print_Grad(Temp_grad_list,Prop_grad_list,Rep_grad_list,Caus_grad_list,Log_Folder)
+	local Truth=torch.Tensor(#truth)
+	local Output=torch.Tensor(#output)	
+	local corr=corr or 1
+	if corr<0 then 
+		Variable_Truth='Normalized Truth (*-1)'
+		corr=-1
+	else Variable_Truth='Normalized Truth ' end
+	local Variable_Output='Normalized State'
 
-	local scale= 1000
-	local Name = Log_Folder..'Grad.log'
-	local accLogger = optim.Logger(Name)
-
-	for i=1, #Temp_grad_list do
-	-- update logger
-		accLogger:add{['Temp_Grad*'..scale] = Temp_grad_list[i]*scale,
-				['Prop_Grad*'..scale] = Prop_grad_list[i]*scale,
-				['Rep_Grad*'..scale] = Rep_grad_list[i]*scale,
-				['Caus_Grad*'..scale] = Caus_grad_list[i]*scale}
+	for i=1, #truth do
+			Truth[i]=truth[i]
+			Output[i]=output[i]
 	end
-	-- plot logger
-	accLogger:style{['Temp_Grad*'..scale] = '-',
-			['Prop_Grad*'..scale] = '-',
-			['Rep_Grad*'..scale] = '-',
-			['Caus_Grad*'..scale] = '-'}
-	accLogger.showPlot = false
-	accLogger:plot()
-end
-
----------------------------------------------------------------------------------------
--- Function : Print_Loss(Temp_Train,Prop_Train,Rep_Train,Temp_Test,Prop_Test,Rep_Test,Log_Folder)
--- Input ():
--- Output ():
----------------------------------------------------------------------------------------
-function Print_Loss(Temp_Train,Prop_Train,Rep_Train,Caus_Train,Temp_Test,Prop_Test,Rep_Test,Caus_Test,Log_Folder)
-	show_loss(Temp_Train,Temp_Test, Log_Folder..'Temp_loss.log', 1000)
-	show_loss(Prop_Train,Prop_Test, Log_Folder..'Prop_loss.log', 1000)
-	show_loss(Rep_Train,Rep_Test, Log_Folder..'Rep_loss.log', 1000)
-	show_loss(Caus_Train,Caus_Test, Log_Folder..'Caus_loss.log', 1000)
-end
+	Truth=corr*(Truth-Truth:mean())/Truth:std()
+	Output=(Output-Output:mean())/Output:std()
 
 
----------------------------------------------------------------------------------------
--- Function : show_loss(list_train, list_test, Name , scale)
--- Input (list_train): list of the train loss
--- Input (list_test): list of the test loss
--- Input (Name): Name of the file
--- Input (scale): multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
----------------------------------------------------------------------------------------
-function show_loss(list_train, list_test, Name , scale)
-
-	local scale=scale or 1000
-	-- log results to files
-	local accLogger = optim.Logger(Name)
-
-	for i=1, #list_train do
-	-- update logger
-		accLogger:add{['train*'..scale] = list_train[i]*scale,['test*'..scale] = list_test[i]*scale}
-	end
-	-- plot logger
-	accLogger:style{['train*'..scale] = '-',['test*'..scale] = '-'}
-	accLogger.showPlot = false
-	accLogger:plot()
-end
-
----------------------------------------------------------------------------------------
--- Function : show_figure(list_out1, Name , scale)
--- Input (list_out1): list of the estimate state
--- Input (Name) : Name of the file
--- Input (scale) : multiplicator factor needed because for optim.logger 1.1=1 but 11~=10
----------------------------------------------------------------------------------------
-function show_figure(list_out1, Name , scale, Variable_Name)
-
-	Variable_Name=Variable_Name or 'out1'
-
-	local scale=scale or 1000
 	-- log results to files
 	accLogger = optim.Logger(Name)
 
-	for i=1, #list_out1 do
+	for i=1, #output do
 	-- update logger
-		accLogger:add{[Variable_Name] = list_out1[i]*scale}
+		accLogger:add{[Variable_Output] = Output[i],[Variable_Truth] = Truth[i]}
 	end
 	-- plot logger
-	accLogger:style{[Variable_Name] = '+'}
+	accLogger:style{[Variable_Output] = '+',[Variable_Truth] = '+'}
 	accLogger.showPlot = false
 	accLogger:plot()
 end
+
+function show_figure(output, Name)
+	local Variable_Output='State'
+	accLogger = optim.Logger(Name)
+	for i=1, #output do accLogger:add{[Variable_Output] = output[i]}end
+	accLogger:style{[Variable_Output] = '+'}
+	accLogger.showPlot = false
+	accLogger:plot()
+end
+
+
