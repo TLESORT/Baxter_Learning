@@ -18,13 +18,13 @@ All the data is in this github's folder.
 The output of the training should be a value for a given image strongly correlated with the true value of joint.
 In training, we achieved 97% of correlation between the real signal of the head and the estimate signal. (the correlation is calculate between signal after normalization of the mean to 0 and std to 1 for the two signals)
 
-![Data example](/Data/pose10_head_pan/Images/ The_Truth.Log.eps)<br />
+![Data example](/Images/The_Truth.eps)<br />
 *Ground truth of the head positino for each image of the validation set*
 
-![Data example](/Data/pose10_head_pan/Images/stateSave7_103_Test.log.eps)<br />
+![Data example](/Images/stateSave7_103_Test.eps)<br />
 *Example of representaion learned after training*
 
-![Data example](/Data/pose10_head_pan/Images/model_en-page-001.jpg)<br />
+![Data example](/Images/model_en-page-001.jpg)<br />
 *Model Used*
 
 # Training with Data augmentation
@@ -32,8 +32,8 @@ In training, we achieved 97% of correlation between the real signal of the head 
 When training without data augmentation, the result analysis  shows that the neural network only uses the position of the blue button in the image to compute its position. This seems a good way to solve the problem but if for example the button becomes green then the robot will not be able to solve the problem anymore. The network thus appears to be too specialized and using an easy trick to solve the problem. To improve the robustness of the network, we want it to use several pieces of information to compute its state.
 To force the network to learn a wider range of features and not only the button position, we choose to artificially make the images more difficult to analyze. If the neural network cannot solve the task by only detecting the blue button it will search other ways. On this purpose we add noise and apply a random color filter on it. This is called data augmentation, the illustration shows different possible data augmentations for an image. The upper left image is the original picture. On bottom left is the image with only noise and other images are application of both noise and random color filters.
 
-![Data example](/Data/pose10_head_pan/Images/imageDAtaAugmentation.jpg)<br />
-*Data Augmentation example *
+![Data example](/Images/imageDAtaAugmentation.jpg)<br />
+*Data Augmentation example*
 
 
 One possible solution for training : 
@@ -45,10 +45,10 @@ One possible solution for training :
 
 # Activation results
 
-![Data example](/Data/pose10_head_pan/Images/Unsupervised_woda.jpg)<br />
+![Data example](/Images/Unsupervised_woda.jpg)<br />
 *Example of activation after training without data Augmentation*
 
-![Data example](/Data/pose10_head_pan/Images/Unsupervised.jpg)<br />
+![Data example](/Images/Unsupervised.jpg)<br />
 *Example of activation after training with data Augmentation*
 
 # Conclusion
