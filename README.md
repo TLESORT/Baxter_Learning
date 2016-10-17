@@ -18,10 +18,10 @@ All the data is in this github's folder.
 The output of the training should be a value for a given image strongly correlated with the true value of joint.
 In training, we achieved 97% of correlation between the real signal of the head and the estimate signal. (the correlation is calculate between signal after normalization of the mean to 0 and std to 1 for the two signals)
 
-![Data example](/Images/The_Truth.eps)<br />
+![Data example](/Images/The_Truth.jpg)<br />
 *Ground truth of the head positino for each image of the validation set*
 
-![Data example](/Images/stateSave7_103_Test.eps)<br />
+![Data example](/Images/stateSave7_103_Test.jpg)<br />
 *Example of representaion learned after training*
 
 ![Data example](/Images/model_en-page-001.jpg)<br />
