@@ -45,6 +45,8 @@ One possible solution for training :
 
 # Activation results
 
+The visualization of activation at the last convolution are following. There is two different case of training : with data augmentation and without. The images are split in three part, the left hand side is the activation produce by the image on the rifht hand side. In the middle is the superpositon of both images to figure out which part of the image produce an activation.
+
 ![Data example](/Images/Unsupervised_woda.jpg)<br />
 *Example of activation after training without data Augmentation*
 
