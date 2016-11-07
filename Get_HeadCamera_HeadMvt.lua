@@ -39,17 +39,18 @@ end
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function Get_Folders(Path, including)
-	local list= {}
-	local list_txt={}
+function Get_Folders(Path, including, excluding,list)
+	local list=list or {}
+	local incl=including or ""
+	local excl=excluding or "uyfouhjbhytfoughl" -- random motif
 	for file in paths.files(Path) do
-	   	if file:find(including) then
-			Path_Folder= paths.concat(Path,file)
-			table.insert(list,paths.concat(Path_Folder,"Images"))
-			table.insert(list_txt, paths.concat(Path_Folder,"robot_joint_states.txt"))
-		end
+	   -- We only load files that match 2016 because we know that there are the folder we are interested in
+	   if file:find(incl) and (not file:find(excl)) then
+	      -- and insert the ones we care about in our table
+	      table.insert(list, paths.concat(Path,file))
+	   end
 	end
-	return list, list_txt
+	return list
 end
 
 
@@ -59,12 +60,30 @@ end
 -- Output (list_head_left): list of the images directories path
 -- Output (list_txt):  txt list associated to each directories (this txt file contains the grundtruth of the robot position)
 ---------------------------------------------------------------------------------------
-function Get_HeadCamera_HeadMvt()
-	local Path="./Data/"
-	local Paths_Folder, list_txt=Get_Folders(Path,'head_pan')
+function Get_HeadCamera_HeadMvt(use_simulate_images)
+	local use_simulate_images=use_simulate_images or false
+	local Path
+	if use_simulate_images then
+		Path=paths.home.."/baxter_sim_data/original_data/"
+	else
+		 Path=paths.home.."/baxter/original_data/"
+	end
+
+	local Paths=Get_Folders(Path,'2016$')
+	list={}
+	list_txt={}
+	for i=1, #Paths do
+		list=Get_Folders(Paths[i],'head','bag$',list)
+	end
+
+	list_head_left={}
+	for i=1, #list do
+		list_head_left=Get_Folders(list[i],'cameras_head',nil,list_head_left)
+		table.insert(list_txt, txt_path(list[i]))
+	end
 	table.sort(list_txt)
-	table.sort(Paths_Folder)
-	return Paths_Folder, list_txt
+	table.sort(list_head_left)
+	return list_head_left, list_txt
 end
 
 
@@ -118,7 +137,8 @@ end
 
 function get_one_random_Prop_Set(txt,use_simulate_images)
 	local WatchDog=0
-	local head_pan_indice=2
+	local head_pan_indice=3
+	if use_simulate_images then head_pan_indice=2 end
 	tensor, label=tensorFromTxt(txt)
 	local size=tensor:size(1)
 
@@ -158,11 +178,12 @@ end
 -- Input (use_simulate_images) : boolean variable which say if we use or not simulate images (we need this information because the data is not formated exactly the same in the txt file depending on the origin of images)
 -- Output : structure with 4 indices which represente a quadruplet (2 Pair of images from 2 different list) for Traininng with prop prior. The variation of joint for on pair should be the same as the variation for the second
 ---------------------------------------------------------------------------------------
-function get_two_Prop_Pair(txt1, txt2)
+function get_two_Prop_Pair(txt1, txt2,use_simulate_images)
 
 	assert(txt1~=txt2) -- if you need prop image association from only one txt file see "get_one_random_Temp_Set(list_lenght)"
 	local WatchDog=0
-	local head_pan_indice=2
+	local head_pan_indice=3
+	if use_simulate_images then head_pan_indice=2 end
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
 
@@ -223,9 +244,11 @@ end
 
 function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local WatchDog=0
-	local head_pan_indice=2
+	local head_pan_indice=3
+	if use_simulate_images then head_pan_indice=2 end
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
+
 	local rewarded_Joint={0.8,-0.8}
 
 	local ecart=1--torch.random(1,2)
@@ -233,7 +256,7 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
-	while WatchDog<500 do
+	while WatchDog<200 do
 		repeat
 			indice1=torch.random(1,size1-ecart)			
 			State1=tensor[indice1][head_pan_indice]
@@ -274,9 +297,10 @@ end
 -- Input (arrondit) :
 -- Output (truth): 
 ---------------------------------------------------------------------------------------
-function getTruth(txt)
+function getTruth(txt,use_simulate_images)
 	local truth={}
-	local head_pan_indice=2
+	local head_pan_indice=3
+	if use_simulate_images then head_pan_indice=2 end
 	local tensor, label=tensorFromTxt(txt)
 	
 	for i=1, (#tensor[{}])[1] do

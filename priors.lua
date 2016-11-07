@@ -12,18 +12,20 @@ function doStuff_temp(Models,criterion,Batch,coef)
 	State2=Model2:forward(im2)
 
 	criterion=criterion:cuda()
-	loss=criterion:forward({State2,State1})
-	GradOutputs=criterion:backward({State2,State1})
+	loss=criterion:forward({State1,State2})
+	GradOutputs=criterion:backward({State1,State2})
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[2])
-	Model2:backward(im2,coef*GradOutputs[1])
-	return loss, coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+
+	return loss, coef*GradOutputs[1]
 end
 
 function doStuff_Caus(Models,criterion,Batch,coef)
-
+	
 	local coef= coef or 1
+
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	
@@ -36,13 +38,14 @@ function doStuff_Caus(Models,criterion,Batch,coef)
 
 	criterion=criterion:cuda()
 	output=criterion:updateOutput({State1, State2})
+
 	--we backward with a starting gradient initialized at 1
 	GradOutputs=criterion:updateGradInput({State1, State2}, torch.ones(1))
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
-	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	return output[1], coef*GradOutputs[1]
 end
 
 function doStuff_Prop(Models,criterion,Batch, coef)
@@ -70,14 +73,14 @@ function doStuff_Prop(Models,criterion,Batch, coef)
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
-	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4},torch.ones(1))
+	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
-	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
-	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	Model3:backward(im3,coef*GradOutputs[3])
+	Model4:backward(im4,coef*GradOutputs[4])
 
-	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
+	return output[1], coef*GradOutputs[1]
 end
 
 function doStuff_Rep(Models,criterion,Batch, coef)
@@ -104,15 +107,15 @@ function doStuff_Rep(Models,criterion,Batch, coef)
 	output=criterion:updateOutput({State1, State2, State3, State4})
 
 	--we backward with a starting gradient initialized at 1
-	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
+	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1)) 
 
 
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
-	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
-	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
+	Model:backward(im1,coef*GradOutputs[1])
+	Model2:backward(im2,coef*GradOutputs[2])
+	Model3:backward(im3,coef*GradOutputs[3])
+	Model4:backward(im4,coef*GradOutputs[4])
 
-	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
+	return output[1], coef*GradOutputs[1]
 end
 
 function get_Rep_criterion()
