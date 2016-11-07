@@ -120,13 +120,13 @@ Model=getModel()
 
 
 torch.manualSeed(123)
+
 nbList= #list_folders_images
 imgs={}
 for i=1, nbList-1 do
 	list=images_Paths(list_folders_images[i])
 	table.insert(imgs,load_list(list,image_width,image_height,dataAugmentation))
 end
-
 
 
 	
