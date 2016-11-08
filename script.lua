@@ -42,35 +42,32 @@ function Rico_Training(Models, Mode,batch, coef, LR)
 		end
          	return loss,gradParameters
 	end
-
 	optimState={learningRate=LR}
 	parameters, loss=optim.adagrad(feval, parameters, optimState)
 end
 
 
 function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
-	local BatchSize=6
-	local nbEpoch=15
+	local BatchSize=12
+	local nbEpoch=100
 	local NbBatch=10
-
 	local name_save=Log_Folder..'Save.t7'
-
 	local coef_Temp=1
 	local coef_Prop=1
 	local coef_Rep=1
 	local coef_Caus=1
 	local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
+	local list_corr={}
 
-
+	-- we use last list as test 
 	local list_truth=images_Paths(list_folders_images[nbList])
-
--- we use last list as test 
-	imgs_test=load_list(list_truth,image_width,image_height,false)
-	txt_test=list_txt[nbList]
+	local imgs_test=load_list(list_truth,image_width,image_height,false)
+	local txt_test=list_txt[nbList]
 
 	local truth=getTruth(txt_test,use_simulate_images)
-	show_figure(truth,Log_Folder..'GrougTruth.log')
-	Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,truth)
+	show_figure(truth,Log_Folder..'GroundTruth.log')
+	corr=Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,truth)
+	table.insert(list_corr,corr)
 			
 	for epoch=1, nbEpoch do
 		print('--------------Epoch : '..epoch..' ---------------')
@@ -100,16 +97,16 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 
 			xlua.progress(numBatch, NbBatch)
 		end
-		Print_performance(Models, imgs_test,txt_test,"Test",Log_Folder,truth)
-
+		corr=Print_performance(Models, imgs_test,txt_test,"Test",Log_Folder,truth)
+		table.insert(list_corr,corr)
 	
 		save_model(Models.Model1,name_save)
 	end
-
+	show_figure(list_corr,Log_Folder..'correlation.log','-')
 end
 
 
-local LR=0.001
+local LR=0.0001
 local dataAugmentation=false
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()

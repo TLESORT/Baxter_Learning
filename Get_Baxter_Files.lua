@@ -122,22 +122,19 @@ function get_one_random_Prop_Set(txt,use_simulate_images)
 	tensor, label=tensorFromTxt(txt)
 	local size=tensor:size(1)
 
-
-	local ecart=1--torch.random(1,2)
-
 	while WatchDog<100 do
-		indice1=torch.random(1,size-ecart)
-		indice2=indice1+ecart
+		indice1=torch.random(1,size-1)
+		indice2=indice1+1
 		State1=tensor[indice1][head_pan_indice]
 		State2=tensor[indice2][head_pan_indice]
 		delta=State2-State1
 
-		vector=torch.randperm(size-ecart) -- like this we sample uniformly the different possibility
+		vector=torch.randperm(size) -- like this we sample uniformly the different possibility
 
-		for i=1, size-ecart do
+		for i=1, size-1 do
 			id=vector[i]
 			State3=tensor[id][head_pan_indice]
-			id2=id+ecart
+			id2=id+1
 			delta2=tensor[id2][head_pan_indice]-State3
 			if not ((indice1==id and indice2==id2)or (indice1==id2 and indice2==id)) then
 				if arrondit(delta2-delta)==0 then
@@ -166,29 +163,27 @@ function get_two_Prop_Pair(txt1, txt2)
 	local tensor, label=tensorFromTxt(txt1)
 	local tensor2, label=tensorFromTxt(txt2)
 
-	local ecart=1--torch.random(1,2)
-
 	local delta_action=0
 
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
 
-	vector=torch.randperm(size2-ecart)
+	vector=torch.randperm(size2-1)
 
 	while WatchDog<100 do
 		repeat
-			indice1=torch.random(1,size1-ecart)
-			indice2=indice1+ecart	
+			indice1=torch.random(1,size1-1)
+			indice2=indice1+1	
 			State1=tensor[indice1][head_pan_indice]
 			State2=tensor[indice2][head_pan_indice]
 			delta=State2-State1
 		until(delta~=0)
 
-		for i=1, size2-ecart do
+		for i=1, size2-1 do
 			id=vector[i]
 			State3=tensor2[id][head_pan_indice]
-			id2=id+ecart
+			id2=id+1
 			State4=tensor2[id2][head_pan_indice]
 			delta2=State4-State3
 			if arrondit(delta2-delta)==0 then
@@ -228,27 +223,25 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
 	local tensor2, label=tensorFromTxt(txt2)
 	local rewarded_Joint={0.8,-0.8}
 
-	local ecart=1--torch.random(1,2)
-
 	local size1=tensor:size(1)
 	local size2=tensor2:size(1)
 
 	while WatchDog<500 do
 		repeat
-			indice1=torch.random(1,size1-ecart)			
+			indice1=torch.random(1,size1-1)			
 			State1=tensor[indice1][head_pan_indice]
-			indice2=indice1+ecart
+			indice2=indice1+1
 			State2=tensor[indice2][head_pan_indice]
 		until(not(isRewardJoint(State1,rewarded_Joint)or isRewardJoint(State2,rewarded_Joint)))
 
 		delta=State2-State1
 
-		vector=torch.randperm(size2-ecart)
+		vector=torch.randperm(size2-1)
 
-		for i=1, size2-ecart do
+		for i=1, size2-1 do
 			id=vector[i]
 			State3=tensor2[id][head_pan_indice]
-			id2=id+ecart
+			id2=id+1
 			State4=tensor2[id2][head_pan_indice]
 			delta2=State4-State3
 			if arrondit(delta2-delta)==0 and 

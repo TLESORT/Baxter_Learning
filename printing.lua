@@ -32,6 +32,7 @@ function Print_performance(Models,imgs,txt, name, Log_Folder,truth)
 	corr=ComputeCorrelation(truth,list_out1)
 	show_figure(list_out1, Log_Folder..'state'..name..'.log')
 	show_figure_normalized(list_out1,truth, Log_Folder..'stateNorm'..name..'.log',corr)
+	return corr
 end
 
 function ComputeCorrelation(truth,output)
@@ -81,9 +82,10 @@ function show_figure_normalized(output,truth, Name, corr)
 	accLogger:plot()
 end
 
-function show_figure(output, Name)
+function show_figure(output, Name,point)
+	local point=point or '+'
 	local Variable_Output='State'
-	accLogger = optim.Logger(Name)
+	local accLogger = optim.Logger(Name)
 	for i=1, #output do accLogger:add{[Variable_Output] = output[i]}end
 	accLogger:style{[Variable_Output] = '+'}
 	accLogger.showPlot = false
