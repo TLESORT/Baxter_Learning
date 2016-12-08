@@ -58,51 +58,67 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 	local coef_Caus=1
 	local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
 	local list_corr={}
-
-	-- we use last list as test 
-	local list_truth=images_Paths(list_folders_images[nbList])
-	local imgs_test=load_list(list_truth,image_width,image_height,false)
-	local txt_test=list_txt[nbList]
-
-	local truth=getTruth(txt_test,use_simulate_images)
-	show_figure(truth,Log_Folder..'GroundTruth.log')
-	corr=Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,truth)
-	table.insert(list_corr,corr)
-			
-	for epoch=1, nbEpoch do
-		print('--------------Epoch : '..epoch..' ---------------')
-		print(nbList..' : sequences')
-
-
-		for numBatch=1, NbBatch do
-
-			indice1=torch.random(1,nbList-1)
-			repeat indice2=torch.random(1,nbList-1) until (indice1 ~= indice2)
-
-			txt1=list_txt[indice1]
-			txt2=list_txt[indice2]
-
-			imgs1=imgs[indice1]
-			imgs2=imgs[indice2]
-			
-		
-			Batch_Temp=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Temp")
-			Batch_Prop=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Prop")
-			Batch_Rep=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Rep")
-			Batch_Caus=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Caus")
-			Rico_Training(Models,'Temp',Batch_Temp, coef_Temp,LR)
-			Rico_Training(Models, 'Prop',Batch_Prop, coef_Prop,LR)
-			Rico_Training(Models,'Rep',Batch_Rep, coef_Rep,LR)
-			Rico_Training(Models, 'Caus',Batch_Caus, coef_Caus,LR)
-
-			xlua.progress(numBatch, NbBatch)
-		end
-		corr=Print_performance(Models, imgs_test,txt_test,"Test",Log_Folder,truth)
-		table.insert(list_corr,corr)
 	
-		save_model(Models.Model1,name_save)
+	nbList= #list_folders_images
+	imgs={}
+	for i=1, nbList do
+		list=images_Paths(list_folders_images[i])
+		table.insert(imgs,load_list(list,image_width,image_height,dataAugmentation))
 	end
-	show_figure(list_corr,Log_Folder..'correlation.log','-')
+	
+	for CrossValStep=1, nbList do
+		Log_Folder=Log_Folder..'CrossVal'..CrossValStep..'/' --*
+		-- we put the test set at the end
+		imgs[CrossValStep],imgs[nbList]=imgs[nbList],imgs[CrossValStep]--*
+
+
+		-- we use last list as test 
+		local list_truth=images_Paths(list_folders_images[nbList])
+		local imgs_test=load_list(list_truth,image_width,image_height,false)
+		local txt_test=list_txt[nbList]
+
+		local truth=getTruth(txt_test,use_simulate_images)
+		show_figure(truth,Log_Folder..'GroundTruth.log')
+		corr=Print_performance(Models, imgs_test,txt_test,"First_Test",Log_Folder,truth)
+		table.insert(list_corr,corr)
+
+		for epoch=1, nbEpoch do
+			print('--------------Epoch : '..epoch..' ---------------')
+			print(nbList..' : sequences')
+
+
+			for numBatch=1, NbBatch do
+
+				indice1=torch.random(1,nbList-1)
+				repeat indice2=torch.random(1,nbList-1) until (indice1 ~= indice2)
+
+				txt1=list_txt[indice1]
+				txt2=list_txt[indice2]
+
+				imgs1=imgs[indice1]
+				imgs2=imgs[indice2]
+
+
+				Batch_Temp=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Temp")
+				Batch_Prop=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Prop")
+				Batch_Rep=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Rep")
+				Batch_Caus=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Caus")
+				Rico_Training(Models,'Temp',Batch_Temp, coef_Temp,LR)
+				Rico_Training(Models, 'Prop',Batch_Prop, coef_Prop,LR)
+				Rico_Training(Models,'Rep',Batch_Rep, coef_Rep,LR)
+				Rico_Training(Models, 'Caus',Batch_Caus, coef_Caus,LR)
+
+				xlua.progress(numBatch, NbBatch)
+			end
+			corr=Print_performance(Models, imgs_test,txt_test,"Test",Log_Folder,truth)
+			table.insert(list_corr,corr)
+
+			save_model(Models.Model1,name_save)
+		end
+		show_figure(list_corr,Log_Folder..'correlation.log','-')
+		-- the list is put in the original order
+		imgs[CrossValStep],imgs[nbList]=imgs[nbList],imgs[CrossValStep]--*
+	end --*
 end
 
 
@@ -117,15 +133,6 @@ Model=getModel()
 
 
 torch.manualSeed(123)
-
-nbList= #list_folders_images
-imgs={}
-for i=1, nbList-1 do
-	list=images_Paths(list_folders_images[i])
-	table.insert(imgs,load_list(list,image_width,image_height,dataAugmentation))
-end
-
-
 	
 Model=Model:cuda()
 parameters,gradParameters = Model:getParameters()
