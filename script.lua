@@ -58,7 +58,8 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 	local coef_Caus=1
 	local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
 	local list_corr={}
-	
+	Model=getModel()
+
 	nbList= #list_folders_images
 	imgs={}
 	for i=1, nbList do
@@ -67,6 +68,15 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 	end
 	
 	for CrossValStep=1, nbList do
+		------------------------------------------------------------*
+		torch.manualSeed(123)
+		Model=Model:cuda()
+		parameters,gradParameters = Model:getParameters()
+		Model2=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+		Model3=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+		Model4=Model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+		Models={Model1=Model,Model2=Model2,Model3=Model3,Model4=Model4}
+		------------------------------------------------------------*
 		Log_Folder=Log_Folder..'CrossVal'..CrossValStep..'/' --*
 		-- we put the test set at the end
 		imgs[CrossValStep],imgs[nbList]=imgs[nbList],imgs[CrossValStep]--*
