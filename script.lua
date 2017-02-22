@@ -83,11 +83,11 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 
 
 		-- we use last list as test 
-		--local list_truth=images_Paths(list_folders_images[nbList])
-		local list_truth=images_Paths(list_folders_images[CrossValStep])--*
+		local list_truth=images_Paths(list_folders_images[nbList])
+		--local list_truth=images_Paths(list_folders_images[CrossValStep])--*
 		local imgs_test=load_list(list_truth,image_width,image_height,false)
-		--local txt_test=list_txt[nbList]
-		local txt_test=list_txt[CrossValStep]--*
+		local txt_test=list_txt[nbList]
+		--local txt_test=list_txt[CrossValStep]--*
 
 		local truth=getTruth(txt_test,use_simulate_images)
 		show_figure(truth,Log_Folder..'GroundTruth.log')
