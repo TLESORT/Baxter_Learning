@@ -61,11 +61,22 @@ function train_Epoch(Models,list_folders_images,list_txt,Log_Folder,use_simulate
 	Model=getModel()
 
 	nbList= #list_folders_images
-	imgs={}
-	for i=1, nbList do
-		list=images_Paths(list_folders_images[i])
-		table.insert(imgs,load_list(list,image_width,image_height,dataAugmentation))
-	end
+
+        print("Loading Images")
+	imgs=torch.load("saveImgs.t7")
+
+        
+	-- for i=1, nbList do
+	-- 	list=images_Paths(list_folders_images[i])
+	-- 	table.insert(imgs,load_list(list,image_width,image_height,dataAugmentation))
+	-- end
+
+        -- torch.save('saveImgs.t7',imgs)
+
+        
+
+        print("Training")
+        
 	
 	for CrossValStep=1, nbList do
 		------------------------------------------------------------*
