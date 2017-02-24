@@ -45,7 +45,7 @@ function ComputeCorrelation(truth,output)
 	corr=torch.cmul((Truth-Truth:mean()),(Output-Output:mean())):mean()
 	corr=corr/(Truth:std()*Output:std())
 
-	print("Coorelation")
+	print("Correlation")
 	print(corr)
 	return corr
 end
