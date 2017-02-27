@@ -1,5 +1,7 @@
+require 'image'
+
 function save_model(model,path)
-   print("Saved at : "..path)
+   --print("Saved at : "..path)
    model:cuda()
    parameters, gradParameters = model:getParameters()
    local lightModel = model:clone():float()
@@ -21,25 +23,79 @@ function getImage(im,length,height, train)
    local image1=image.load(im,3,'byte')
    local format=length.."x"..height
    local img1_rsz=image.scale(image1,format)
-   return preprocessing(img1_rsz,length,height, train)
+   return img1_rsz:float()
 end
-function preprocessing(im, lenght, width,train)
-   -- Name channels for convenience
-   local channels = {'r','g','b'}
-   local mean = {}
-   local std = {}
-   data = torch.Tensor( 3, lenght, width)
-   data:copy(im)
-   for i,channel in ipairs(channels) do
-      -- normalize each channel globally:
-      mean[i] = data[i]:mean()
-      std[i] = data[{i,{},{}}]:std()
-      data[{i,{},{}}]:add(-mean[i])
-      data[{i,{},{}}]:div(std[i])
-   end
-   if train then data=dataAugmentation(data, lenght, width) end
 
-   return data
+function meanAndStd(imgs)
+   mean = {0,0,0}
+   std = {0,0,0}
+   totImg = 0
+
+   numPix = imgs[1][1][1]:size(1)*imgs[1][1][1]:size(2)
+
+   -- Don't forget the '-1' to calculate std only on the train set
+   for i=1, nbList-1 do
+      for j=1,#(imgs[i]) do
+         mean[1] = mean[1] + imgs[i][j][{1,{},{}}]:sum()
+         mean[2] = mean[2] + imgs[i][j][{2,{},{}}]:sum()
+         mean[3] = mean[3] + imgs[i][j][{3,{},{}}]:sum()
+         totImg = totImg+1
+      end
+   end
+
+   mean[1] = mean[1] / (totImg*numPix)
+   mean[2] = mean[2] / (totImg*numPix)
+   mean[3] = mean[3] / (totImg*numPix)
+
+   -- Don't forget the '-1' to calculate std only on the train set
+   for i=1, nbList-1 do
+      for j=1,#(imgs[i]) do
+         std[1] = std[1] + torch.pow(imgs[i][j][{1,{},{}}] - mean[1],2):sum()
+         std[2] = std[2] + torch.pow(imgs[i][j][{2,{},{}}] - mean[2],2):sum()
+         std[3] = std[3] + torch.pow(imgs[i][j][{3,{},{}}] - mean[3],2):sum()
+      end
+   end
+
+   std[1] = math.sqrt(std[1] / (totImg*numPix))
+   std[2] = math.sqrt(std[2] / (totImg*numPix))
+   std[3] = math.sqrt(std[3] / (totImg*numPix))
+
+   return mean,std
+end
+
+function normalize(im,mean,std)
+
+   for i=1,3 do
+      im[{i,{},{}}] = (im[{i,{},{}}] - mean[i])/std[i]
+   end
+   return im
+
+end
+
+function preprocessingTest(imgs,mean,std)
+
+   for i=1,#imgs do
+      im = imgs[i]
+      imgs[i] = normalize(im,mean,std)
+   end
+
+   return imgs
+end
+   
+function preprocessing(imgs,mean,std)
+
+   mean, std = meanAndStd(imgs)
+   numSeq = #imgs-1
+   
+   for i=1,numSeq do
+      for j=1,#(imgs[i]) do
+         im = imgs[i][j]
+         imgs[i][j] =  dataAugmentation(im, mean,std)
+      end
+   end
+
+   return imgs
+   
 end
 
 local function gamma(im)
@@ -48,7 +104,6 @@ local function gamma(im)
    local mean = {}
    local std = {}
    for i,channel in ipairs(channels) do
-      
       for j,channel in ipairs(channels) do
          if i==j then Gamma[i][i] = im[{i,{},{}}]:var()
          else
@@ -66,31 +121,49 @@ local function transformation(im, v,e)
    local Gamma=torch.mv(v,e)
    for i=1, 3 do
       transfo[i]=im[i]+Gamma[i]
+      io.read()
    end
    return transfo
 end
 
-function dataAugmentation(im, lenght, width)
+function dataAugmentation(im, mean, std)
    local channels = {'r','g','b'}
+   local noiseReductionFactor = 2 -- the bigger, less noise
+   local length = im:size(2)
+   local width = im:size(3)
+   local maxShift = 50
 
-   gam=gamma(im)
-   e, V = torch.eig(gam,'V')
-   factors=torch.randn(3)*0.1
-   for i=1,3 do e:select(2, 1)[i]=e:select(2, 1)[i]*factors[i] end
-   im=transformation(im, V,e:select(2, 1))
-   noise=torch.rand(3,lenght,width)
-   local mean = {}
-   local std = {}
-   for i,channel in ipairs(channels) do
-      -- normalize each channel globally:
-      mean[i] = noise[i]:mean()
-      std[i] = noise[{i,{},{}}]:std()
-      noise[{i,{},{}}]:add(-mean[i])
-      noise[{i,{},{}}]:div(std[i])
+   for i=1,3 do
+      colorShift = torch.uniform(-maxShift,maxShift)
+      im[{i,{},{}}] = im[{i,{},{}}] + colorShift
    end
-   return im+noise
+   
+   -- Adding Gaussian noise to the data
+   noise=torch.rand(3,length,width)/noiseReductionFactor
+   noise = noise - 0.5/noiseReductionFactor --center noise
+
+   im = normalize(im):add(noise:float())
+
+   return im
+
 end
 
+function normalize(data)
+   -- Name channels for convenience
+   local channels = {'r','g','b'}
+   local mean = {}
+   local std = {}
+   
+   for i,channel in ipairs(channels) do
+      -- normalize each channel globally:
+      mean[i] = data[i]:mean()
+      std[i] = data[{i,{},{}}]:std()
+      data[{i,{},{}}]:add(-mean[i])
+      data[{i,{},{}}]:div(std[i])
+   end
+
+   return data
+end
 
 function getRandomBatch(imgs1, imgs2, txt1, txt2, lenght, Mode)
 
