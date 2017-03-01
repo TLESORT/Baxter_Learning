@@ -100,7 +100,6 @@ function accuracy(imgs_test,truth)
 
    print("yhat",yhat[1][1],yhat[2][1],yhat[3][1],yhat[4][1],yhat[60][1],yhat[61][1])
    print("y",truth[1],truth[2],truth[3],truth[4],truth[60],truth[61])
-   io.read()
    
    for i=1,#imgs_test do
       acc = acc + math.sqrt(math.pow(yhat[i][1]-truth[i],2))
@@ -111,40 +110,35 @@ end
 
 function train_Epoch(model,list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
-   local sizeBatch=20
+   local sizeBatch=40
    local nbEpoch=100
    local nbBatch=15
    local name_save=Log_Folder..'HeadSupervised.t7'
 
+   --to normalize images, you need them, 'preprocessing' function calculate those values
+   local mean = 0 
+   local std = 0 
+
    nbList= #list_folders_images
-   imgs = {}
+
    print("Loading Images")
-
-   imgs = torch.load('saveImgsAugm.t7')
-   local mean = {79.80,68,09,65.76}
-   local std = {43.46,48.29,52.25}
-
-   -- imgs = torch.load('saveImgsRaw.t7')
-   -- for i=1, nbList-1 do
-   --    list=images_Paths(list_folders_images[i])
-   --    table.insert(imgs,load_list(list,image_width,image_height,false))
-   -- end
-
-   -- imgs = preprocessing(imgs)
-   -- torch.save('saveImgsAugm.t7',imgs)
-
+   reconstruct = false
+   imgs, std, mean = loadTrain(reconstruct)
    print("Training")
 
    -- we use last list as test 
    local list_truth=images_Paths(list_folders_images[nbList])
    local imgs_test=load_list(list_truth,image_width,image_height,false)
+
    local imgs_test = preprocessingTest(imgs_test,mean,std)
+
    local txt_test=list_txt[nbList]
    local truth=getTruth(txt_test,use_simulate_images)
 
    assert(#imgs_test==#truth,"Different number of images and corresponding ground truth, something is wrong")
    
-   for epoch=1, nbEpoch do
+   --for epoch=1, nbEpoch do
+   for epoch=1,1 do
 
       print('--------------Epoch : '..epoch..' ---------------')
       local lossTemp=0

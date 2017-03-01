@@ -1,4 +1,49 @@
-require 'image'
+function createModels()
+
+   if LOADING then
+      print("Loading Model")
+      model = torch.load(Log_Folder..'20e.t7')
+   else
+      model=getModel()
+   end
+
+   model=model:cuda()
+   parameters,gradParameters = model:getParameters()
+   model2=model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+   model3=model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+   model4=model:clone('weight','bias','gradWeight','gradBias','running_mean','running_std')
+
+   models={model1=model,model2=model2,model3=model3,model4=model4}
+   return models
+
+end
+
+
+function loadTrainTest(list_folders_images, crossValStep,reconstruct)
+
+   imgs = {}
+   print("Loading Images")
+
+   if reconstruct then
+      print("nbList",nbList)
+      for i=1,nbList do
+         list=images_Paths(list_folders_images[i])
+         table.insert(imgs,load_list(list,image_width,image_height,false))
+      end
+      torch.save('saveImgsRaw.t7',imgs)
+   else
+      imgs = torch.load('saveImgsRaw.t7')
+   end
+
+   -- switch value, because all functions consider the last element to be the test element
+   imgs[crossValStep], imgs[#imgs] = imgs[#imgs], imgs[crossValStep]
+   print("Preprocessing")
+   imgs,mean,std = preprocessing(imgs)
+
+   imgs_test = imgs[#imgs]
+   return imgs, imgs_test
+   
+end
 
 function save_model(model,path)
    --print("Saved at : "..path)
@@ -27,75 +72,79 @@ function getImage(im,length,height, train)
 end
 
 function meanAndStd(imgs)
-   mean = {0,0,0}
-   std = {0,0,0}
-   totImg = 0
 
-   numPix = imgs[1][1][1]:size(1)*imgs[1][1][1]:size(2)
+   local length,height = imgs[1][1][1]:size(1), imgs[1][1][1]:size(2)
 
-   -- Don't forget the '-1' to calculate std only on the train set
-   for i=1, nbList-1 do
+   local mean = {torch.zeros(length,height),torch.zeros(length,height),torch.zeros(length,height)}
+   local std = {torch.zeros(length,height),torch.zeros(length,height),torch.zeros(length,height)}
+
+   local numSeq = #imgs-1
+   local totImg = 0
+
+   for i=1,numSeq do
       for j=1,#(imgs[i]) do
-         mean[1] = mean[1] + imgs[i][j][{1,{},{}}]:sum()
-         mean[2] = mean[2] + imgs[i][j][{2,{},{}}]:sum()
-         mean[3] = mean[3] + imgs[i][j][{3,{},{}}]:sum()
+         mean[1] = mean[1]:add(imgs[i][j][{1,{},{}}]:double())
+         mean[2] = mean[2]:add(imgs[i][j][{2,{},{}}]:double())
+         mean[3] = mean[3]:add(imgs[i][j][{3,{},{}}]:double())
          totImg = totImg+1
       end
    end
 
-   mean[1] = mean[1] / (totImg*numPix)
-   mean[2] = mean[2] / (totImg*numPix)
-   mean[3] = mean[3] / (totImg*numPix)
+   mean[1] = mean[1] / totImg
+   mean[2] = mean[2] / totImg
+   mean[3] = mean[3] / totImg
 
-   -- Don't forget the '-1' to calculate std only on the train set
-   for i=1, nbList-1 do
+   for i=1,numSeq do
       for j=1,#(imgs[i]) do
-         std[1] = std[1] + torch.pow(imgs[i][j][{1,{},{}}] - mean[1],2):sum()
-         std[2] = std[2] + torch.pow(imgs[i][j][{2,{},{}}] - mean[2],2):sum()
-         std[3] = std[3] + torch.pow(imgs[i][j][{3,{},{}}] - mean[3],2):sum()
+         std[1] = std[1]:add(torch.pow(imgs[i][j][{1,{},{}}]:double() - mean[1],2))
+         std[2] = std[2]:add(torch.pow(imgs[i][j][{2,{},{}}]:double() - mean[2],2))
+         std[3] = std[3]:add(torch.pow(imgs[i][j][{3,{},{}}]:double() - mean[3],2))
       end
    end
 
-   std[1] = math.sqrt(std[1] / (totImg*numPix))
-   std[2] = math.sqrt(std[2] / (totImg*numPix))
-   std[3] = math.sqrt(std[3] / (totImg*numPix))
+   std[1] = torch.sqrt(std[1] / totImg)
+   std[2] = torch.sqrt(std[2] / totImg)
+   std[3] = torch.sqrt(std[3] / totImg)
 
    return mean,std
 end
 
 function normalize(im,mean,std)
-
    for i=1,3 do
       im[{i,{},{}}] = (im[{i,{},{}}] - mean[i])/std[i]
    end
    return im
-
 end
 
 function preprocessingTest(imgs,mean,std)
-
+   --Normalizing all images
    for i=1,#imgs do
       im = imgs[i]
       imgs[i] = normalize(im,mean,std)
    end
-
    return imgs
 end
-   
-function preprocessing(imgs,mean,std)
 
-   mean, std = meanAndStd(imgs)
+function preprocessing(imgs,meanStd)
+   -- Calculate mean and std for images in train set, normalize train set and apply to test
+   if not meanStd then
+      mean, std = meanAndStd(imgs)
+   else
+      mean, std = meanStd[1], meanStd[2]
+   end
+
    numSeq = #imgs-1
-   
    for i=1,numSeq do
       for j=1,#(imgs[i]) do
          im = imgs[i][j]
          imgs[i][j] =  dataAugmentation(im, mean,std)
       end
    end
+   print("#imgs",#imgs)
+   imgs[#imgs] = preprocessingTest(imgs[#imgs])
+   print("#imgs",#imgs)
 
-   return imgs
-   
+   return imgs, mean, std
 end
 
 local function gamma(im)
@@ -200,4 +249,7 @@ function getRandomBatch(imgs1, imgs2, txt1, txt2, lenght, Mode)
 
 end
 
-
+function file_exists(name)
+   local f=io.open(name,"r")
+   if f~=nil then io.close(f) return true else return false end
+end
