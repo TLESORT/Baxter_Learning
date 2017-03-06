@@ -18,7 +18,6 @@ function createModels()
 
 end
 
-
 function loadTrainTest(list_folders_images, crossValStep,reconstruct)
 
    imgs = {}
@@ -47,12 +46,13 @@ end
 
 function save_model(model,path)
    --print("Saved at : "..path)
-   model:cuda()
+   model:float()
    parameters, gradParameters = model:getParameters()
    local lightModel = model:clone():float()
    lightModel:clearState()
    torch.save(path,lightModel)
 end
+
 function load_list(list, train)
    local im={}
    local lenght=image_width or 200
@@ -106,6 +106,7 @@ function meanAndStd(imgs)
    std[2] = torch.sqrt(std[2] / totImg)
    std[3] = torch.sqrt(std[3] / totImg)
 
+   torch.save('Log/meanStdImages.t7')
    return mean,std
 end
 
@@ -140,9 +141,7 @@ function preprocessing(imgs,meanStd)
          imgs[i][j] =  dataAugmentation(im, mean,std)
       end
    end
-   print("#imgs",#imgs)
    imgs[#imgs] = preprocessingTest(imgs[#imgs])
-   print("#imgs",#imgs)
 
    return imgs, mean, std
 end
@@ -252,4 +251,39 @@ end
 function file_exists(name)
    local f=io.open(name,"r")
    if f~=nil then io.close(f) return true else return false end
+end
+
+function saveMeanAndStdRepr(imgs)
+   local Log_Folder='./Log/'
+   local allRepr = {}
+   local totImgs = 0
+
+   for s=1,#imgs do
+      local imgs_test = imgs[s]
+      for i=1,#imgs_test do
+         local img = torch.zeros(1,3,200,200)
+         img[1] = imgs_test[i]
+         allRepr[#allRepr+1] = models.model1:forward(img:cuda()):float()
+         if mean then
+            mean = torch.add(mean, allRepr[#allRepr])
+         else
+            mean = allRepr[#allRepr]
+         end
+      end
+   end
+
+   mean = mean / #allRepr
+   -- print("mean",mean)
+   -- print("allRepr",allRepr[5],allRepr[150],allRepr[400],allRepr[250])
+   
+   for i=1,#allRepr do
+      if std then
+         std = std:add(torch.pow(allRepr[i] - mean,2))
+      else
+         std = torch.pow(allRepr[i] - mean,2)
+      end
+   end
+   std = torch.sqrt(std / #allRepr)
+   -- print("sumStd", std)
+   torch.save(Log_Folder..'meanStdRepr.t7',{mean,std})
 end

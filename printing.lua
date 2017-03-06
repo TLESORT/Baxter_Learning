@@ -3,7 +3,7 @@
 -- Input ():
 -- Output ():
 ---------------------------------------------------------------------------------------
-function Print_performance(models,imgs,txt, name, Log_Folder,truth)
+function Print_performance(models,imgs,txt, name, Log_Folder,truth, displayPlot)
 
    local REP_criterion=get_Rep_criterion()
    local PROP_criterion=get_Prop_criterion()
@@ -26,8 +26,11 @@ function Print_performance(models,imgs,txt, name, Log_Folder,truth)
    end
 
    corr=ComputeCorrelation(truth,list_out1)
-   show_figure(list_out1, Log_Folder..'state'..name..'.log')
-   show_figure_normalized(list_out1,truth, Log_Folder..'stateNorm'..name..'.log',corr)
+   if displayPlot then
+      show_figure(list_out1, Log_Folder..'state'..name..'.log')
+      show_figure_normalized(list_out1,truth, Log_Folder..'stateNorm'..name..'.log',corr)
+   end
+   
    return corr
 end
 
@@ -81,7 +84,7 @@ function show_figure(output, Name,point)
    local accLogger = optim.Logger(Name)
    for i=1, #output do accLogger:add{[Variable_Output] = output[i]}end
    accLogger:style{[Variable_Output] = '+'}
-   accLogger.showPlot = false
+   accLogger.showPlot = true
    accLogger:plot()
 end
 
