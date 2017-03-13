@@ -1,4 +1,4 @@
-function createModels()
+ function createModels()
 
    if LOADING then
       print("Loading Model")
@@ -18,12 +18,12 @@ function createModels()
 
 end
 
-function loadTrainTest(list_folders_images, crossValStep,reconstruct)
+function loadTrainTest(list_folders_images, crossValStep)
 
    imgs = {}
    print("Loading Images")
 
-   if reconstruct then
+   if not file_exists('saveImgsRaw.t7') then
       print("nbList",nbList)
       for i=1,nbList do
          list=images_Paths(list_folders_images[i])
@@ -53,22 +53,23 @@ function save_model(model,path)
    torch.save(path,lightModel)
 end
 
-function load_list(list, train)
+function load_list(list)
    local im={}
    local lenght=image_width or 200
    local height=image_height or 200
    for i=1, #list do
-      table.insert(im,getImage(list[i],lenght,height,train))
+      table.insert(im,getImage(list[i]))
    end 
    return im
 end
 
-function getImage(im,length,height, train)
+function getImage(im)
    if im=='' or im==nil then return nil end
    local image1=image.load(im,3,'byte')
-   local format=length.."x"..height
-   local img1_rsz=image.scale(image1,format)
-   return img1_rsz:float()
+   return image1
+   -- local format=length.."x"..height
+   -- local img1_rsz=image.scale(image1,format)
+   -- return img1_rsz:float()
 end
 
 function meanAndStd(imgs)
@@ -106,7 +107,7 @@ function meanAndStd(imgs)
    std[2] = torch.sqrt(std[2] / totImg)
    std[3] = torch.sqrt(std[3] / totImg)
 
-   torch.save('Log/meanStdImages.t7')
+   torch.save('Log/meanStdImages.t7',{mean,std})
    return mean,std
 end
 
@@ -126,8 +127,54 @@ function preprocessingTest(imgs,mean,std)
    return imgs
 end
 
+
+function scaleAndCrop(imgs, length, height)
+   -- Why do i scale and crop after ? Because this is the way it's done under python,
+   -- so we need to do the same conversion
+
+   local lengthBeforeCrop = 320
+   local lengthAfterCrop = length or 200
+   local height = height or 200
+   local formatBefore=lengthBeforeCrop.."x"..height
+
+   for s=1,#imgs do
+      for i=1,#imgs[s] do
+         local img=image.scale(imgs[s][i],formatBefore)
+         local img= image.crop(img, 'c', lengthAfterCrop, height)
+         imgs[s][i] = img:float()
+         -- image.display(img)
+         -- io.read()
+      end
+   end
+   return imgs
+end
+
+function scaleAndRandomCrop(imgs, length, height)
+   local length = length or 200
+   local height = height or 200
+   local cropSize = 32
+   
+   for s=1,#imgs do
+      -- Apply random modification on the images for the whole sequence
+      local format=length+cropSize.."x"..height+cropSize
+      local posX, posY = torch.random(cropSize),torch.random(cropSize)
+
+      for i=1,#imgs[s] do
+         local img1_rsz=image.scale(imgs[s][i],format)
+         local img = image.crop(img1_rsz, posX, posY, posX+length, posY+height)
+         imgs[s][i] = img:float()
+         -- image.display(img)
+         -- io.read()
+      end
+   end
+   return imgs
+end
+   
+
 function preprocessing(imgs,meanStd)
-   -- Calculate mean and std for images in train set, normalize train set and apply to test
+
+   -- Calculate reformat imgs, mean and std for images in train set, normalize train set and apply to test
+   imgs = scaleAndCrop(imgs)
    if not meanStd then
       mean, std = meanAndStd(imgs)
    else
@@ -146,40 +193,13 @@ function preprocessing(imgs,meanStd)
    return imgs, mean, std
 end
 
-local function gamma(im)
-   local Gamma= torch.Tensor(3,3)
-   local channels = {'r','g','b'}
-   local mean = {}
-   local std = {}
-   for i,channel in ipairs(channels) do
-      for j,channel in ipairs(channels) do
-         if i==j then Gamma[i][i] = im[{i,{},{}}]:var()
-         else
-            chan_i=im[{i,{},{}}]-im[{i,{},{}}]:mean()
-            chan_j=im[{j,{},{}}]-im[{j,{},{}}]:mean()
-            Gamma[i][j]=(chan_i:t()*chan_j):mean()
-         end
-      end
-   end
-   return Gamma
-end
-
-local function transformation(im, v,e)
-   local transfo=torch.Tensor(3,200,200)
-   local Gamma=torch.mv(v,e)
-   for i=1, 3 do
-      transfo[i]=im[i]+Gamma[i]
-      io.read()
-   end
-   return transfo
-end
 
 function dataAugmentation(im, mean, std)
    local channels = {'r','g','b'}
    local noiseReductionFactor = 2 -- the bigger, less noise
    local length = im:size(2)
    local width = im:size(3)
-   local maxShift = 50
+   local maxShift = 80
 
    for i=1,3 do
       colorShift = torch.uniform(-maxShift,maxShift)
@@ -248,22 +268,31 @@ function getRandomBatch(imgs1, imgs2, txt1, txt2, lenght, Mode)
 
 end
 
-function file_exists(name)
-   local f=io.open(name,"r")
-   if f~=nil then io.close(f) return true else return false end
-end
-
 function saveMeanAndStdRepr(imgs)
    local Log_Folder='./Log/'
    local allRepr = {}
    local totImgs = 0
+   local mean = nil
+   local std = nil
 
+   -- ===== Uncomment if you want to display images (and use qlua instead of th)
+   --w = image.display(image.lena()) -- with positional arguments mode
+   
    for s=1,#imgs do
       local imgs_test = imgs[s]
       for i=1,#imgs_test do
          local img = torch.zeros(1,3,200,200)
          img[1] = imgs_test[i]
          allRepr[#allRepr+1] = models.model1:forward(img:cuda()):float()
+
+         --====== Printing the state corresponding to the image =====
+         -- ====== don't forget to uncomment the line 'w = image ... " above
+         -- if s==1 then
+         --    image.display{image=img, win=w}
+         --    print(allRepr[#allRepr][1])
+         --    io.read()
+         -- end
+
          if mean then
             mean = torch.add(mean, allRepr[#allRepr])
          else
@@ -287,3 +316,38 @@ function saveMeanAndStdRepr(imgs)
    -- print("sumStd", std)
    torch.save(Log_Folder..'meanStdRepr.t7',{mean,std})
 end
+
+
+local function gamma(im)
+   local Gamma= torch.Tensor(3,3)
+   local channels = {'r','g','b'}
+   local mean = {}
+   local std = {}
+   for i,channel in ipairs(channels) do
+      for j,channel in ipairs(channels) do
+         if i==j then Gamma[i][i] = im[{i,{},{}}]:var()
+         else
+            chan_i=im[{i,{},{}}]-im[{i,{},{}}]:mean()
+            chan_j=im[{j,{},{}}]-im[{j,{},{}}]:mean()
+            Gamma[i][j]=(chan_i:t()*chan_j):mean()
+         end
+      end
+   end
+   return Gamma
+end
+
+local function transformation(im, v,e)
+   local transfo=torch.Tensor(3,200,200)
+   local Gamma=torch.mv(v,e)
+   for i=1, 3 do
+      transfo[i]=im[i]+Gamma[i]
+      io.read()
+   end
+   return transfo
+end
+
+function file_exists(name)
+   local f=io.open(name,"r")
+   if f~=nil then io.close(f) return true else return false end
+end
+

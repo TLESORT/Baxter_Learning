@@ -1,7 +1,7 @@
+require 'torch'
 require 'nn'
 require 'optim'
 require 'image'
-require 'torch'
 require 'xlua'
 require 'math'
 require 'string'
@@ -60,14 +60,14 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
    local coef_Temp=1
    local coef_Prop=1
    local coef_Rep=1
-   local coef_Caus=1
+   local coef_Caus=5
    local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
    local list_corr={}
 
    local plot = true
-   
+   local loading = false
+
    nbList= #list_folders_images
-   reconstruct = false
 
    for crossValStep=1,nbList do
 
@@ -75,12 +75,12 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
 
       currentLogFolder=Log_Folder..'CrossVal'..crossValStep..'/' --*
 
-      if file_exists('imgsCv'..crossValStep..'.t7') then
+      if file_exists('imgsCv'..crossValStep..'.t7') and LOADING then
          print("Data Already Exists, Loading")
          imgs = torch.load('imgsCv'..crossValStep..'.t7')
          imgs_test = imgs[#imgs]
       else
-         local imgs, imgs_test = loadTrainTest(list_folders_images,crossValStep,reconstruct)
+         local imgs, imgs_test = loadTrainTest(list_folders_images,crossValStep)
          torch.save('imgsCv'..crossValStep..'.t7', imgs)
       end
 
@@ -89,7 +89,7 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
       local txt_test=list_txt[#list_txt]
       local truth=getTruth(txt_test,use_simulate_images)
 
-      assert(#imgs_test==#truth,"Different number of images and corresponding ground truth, something is wrong")
+      assert(#imgs_test==#truth,"Different number of images and corresponding ground truth, something is wrong \nNumber of Images : "..#imgs_test.." and Number of truth value : "..#truth)
 
       if plot then
          show_figure(truth,currentLogFolder..'GroundTruth.log')
@@ -153,6 +153,7 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
 
       --for reiforcement, we need mean and std to normalize representation
       saveMeanAndStdRepr(imgs)
+
       
       models.model1:float()
       save_model(models.model1,name_save)
@@ -167,7 +168,6 @@ local LR=0.0001
 local dataAugmentation=false
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
-local LOADING = false
 
 require('./models/convolutionnal')
 

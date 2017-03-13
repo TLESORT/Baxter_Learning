@@ -8,21 +8,22 @@ require 'nngraph'
 require 'MSDC'
 require 'functions.lua'
 require 'printing.lua'
-require "Get_HeadCamera_HeadMvt"
 require 'priors'
+require "Get_Baxter_Files"
 
+require 'optim'
 
 ----------------------------------------------INIT-----------------------------------------
 -- graine fixée
 torch.manualSeed(123)
 --Path du model entrainé (ou non)
-name_deep='./Log/3_11_reload_2114/Everything/Save3_11_reload_2114_best.t7'
+name_deep='./Log/reprLearner1d.t7'
 -- On load le model et on s'assure qu'il est sur le CPU avec ":double()"
 local net = torch.load(name_deep):double()
 -- affichage architecture reseau (fonctionne si le réseau est créé avec 'nn')
 print('net\n' .. net:__tostring());
 -- chemin vers le dossier pour sauvegarder les images (le chemin doit déjà exister)
-local path= paths.home.."/Bureau/Resultat_non_supervise/04-11-2/" 
+local path= paths.home..'/Documents/enstage/Baxter_Learning/Images/ActivationMap'
 local level=19 -- numero de la couche à visualiser (cf ouput du print précédent pour choisir le numéro)
 --------------------------------------------------------------------------------------------
 
