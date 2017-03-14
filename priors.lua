@@ -1,38 +1,37 @@
-function doStuff_temp(Models,criterion,Batch,coef)
+function doStuff_temp(models,criterion,Batch,coef)
 	
 	local coef= coef or 1
 
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	
-	Model=Models.Model1
-	Model2=Models.Model2
+	model=models.model1
+	model2=models.model2
 
-	State1=Model:forward(im1)
-	State2=Model2:forward(im2)
+	State1=model:forward(im1)
+	State2=model2:forward(im2)
 
 	criterion=criterion:cuda()
 	loss=criterion:forward({State2,State1})
 	GradOutputs=criterion:backward({State2,State1})
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[2])
-	Model2:backward(im2,coef*GradOutputs[1])
+	model:backward(im1,coef*GradOutputs[2])
+	model2:backward(im2,coef*GradOutputs[1])
 	return loss, coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
-function doStuff_Caus(Models,criterion,Batch,coef)
+function doStuff_Caus(models,criterion,Batch,coef)
 
 	local coef= coef or 1
 	im1=Batch[1]:cuda()
 	im2=Batch[2]:cuda()
 	
-	Model=Models.Model1
-	Model2=Models.Model2
+	model=models.model1
+	model2=models.model2
 
-	State1=Model:forward(im1)
-	State2=Model2:forward(im2)
-
+	State1=model:forward(im1)
+	State2=model2:forward(im2)
 
 	criterion=criterion:cuda()
 	output=criterion:updateOutput({State1, State2})
@@ -40,12 +39,12 @@ function doStuff_Caus(Models,criterion,Batch,coef)
 	GradOutputs=criterion:updateGradInput({State1, State2}, torch.ones(1))
 
 	-- calculer les gradients pour les deux images
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
 	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
-function doStuff_Prop(Models,criterion,Batch, coef)
+function doStuff_Prop(models,criterion,Batch, coef)
 	
 	local coef= coef or 1
 
@@ -54,16 +53,16 @@ function doStuff_Prop(Models,criterion,Batch, coef)
 	im3=Batch[3]:cuda()
 	im4=Batch[4]:cuda()
 
-	Model=Models.Model1
-	Model2=Models.Model2
-	Model3=Models.Model3
-	Model4=Models.Model4
+	model=models.model1
+	model2=models.model2
+	model3=models.model3
+	model4=models.model4
 
 
-	State1=Model:forward(im1)
-	State2=Model2:forward(im2)
-	State3=Model3:forward(im3)
-	State4=Model4:forward(im4)
+	State1=model:forward(im1)
+	State2=model2:forward(im2)
+	State3=model3:forward(im3)
+	State4=model4:forward(im4)
 
 
 	criterion=criterion:cuda()
@@ -72,15 +71,15 @@ function doStuff_Prop(Models,criterion,Batch, coef)
 	--we backward with a starting gradient initialized at 1
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4},torch.ones(1))
 
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
-	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
-	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
+	model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
+	model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
 
 	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end
 
-function doStuff_Rep(Models,criterion,Batch, coef)
+function doStuff_Rep(models,criterion,Batch, coef)
 	
 	local coef= coef or 1
 
@@ -90,15 +89,15 @@ function doStuff_Rep(Models,criterion,Batch, coef)
 	im4=Batch[4]:cuda()
 
 
-	Model=Models.Model1
-	Model2=Models.Model2
-	Model3=Models.Model3
-	Model4=Models.Model4
+	model=models.model1
+	model2=models.model2
+	model3=models.model3
+	model4=models.model4
 
-	State1=Model:forward(im1)
-	State2=Model2:forward(im2)
-	State3=Model3:forward(im3)
-	State4=Model4:forward(im4)
+	State1=model:forward(im1)
+	State2=model2:forward(im2)
+	State3=model3:forward(im3)
+	State4=model4:forward(im4)
 
 	criterion=criterion:cuda()
 	output=criterion:updateOutput({State1, State2, State3, State4})
@@ -107,10 +106,10 @@ function doStuff_Rep(Models,criterion,Batch, coef)
 	GradOutputs=criterion:updateGradInput({State1, State2, State3, State4}, torch.ones(1))
 
 
-	Model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
-	Model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
-	Model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
-	Model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
+	model:backward(im1,coef*GradOutputs[1]/Batch[1]:size(1))
+	model2:backward(im2,coef*GradOutputs[2]/Batch[1]:size(1))
+	model3:backward(im3,coef*GradOutputs[3]/Batch[1]:size(1))
+	model4:backward(im4,coef*GradOutputs[4]/Batch[1]:size(1))
 
 	return output:mean(), coef*GradOutputs[1]:cmul(GradOutputs[1]):mean()
 end

@@ -37,6 +37,7 @@ function getModel()
 	-- Initiallisation : "Understanding the difficulty of training deep feedforward neural networks"
 	local method = 'xavier'
 	local Timnet = require('weight-init')(Timnet, method)
-	print('Timnet\n' .. Timnet:__tostring());
+        print("Creating Model")
+	-- print('Timnet\n' .. Timnet:__tostring());
 	return Timnet
 end
