@@ -54,18 +54,18 @@ end
 function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
    local BatchSize=15
-   local nbEpoch=4
+   local nbEpoch=20
    local totalBatch=15
    local name_save=Log_Folder..'reprLearner1d.t7'
    local coef_Temp=1
    local coef_Prop=1
    local coef_Rep=1
-   local coef_Caus=5
+   local coef_Caus=1
    local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
    local list_corr={}
 
    local plot = true
-   local loading = false
+   local loading = true
 
    nbList= #list_folders_images
 
@@ -75,7 +75,7 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
 
       currentLogFolder=Log_Folder..'CrossVal'..crossValStep..'/' --*
 
-      if file_exists('imgsCv'..crossValStep..'.t7') and LOADING then
+      if file_exists('imgsCv'..crossValStep..'.t7') and loading then
          print("Data Already Exists, Loading")
          imgs = torch.load('imgsCv'..crossValStep..'.t7')
          imgs_test = imgs[#imgs]
@@ -165,13 +165,14 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
 end
 
 local LR=0.0001
-local dataAugmentation=false
+local dataAugmentation=true
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 
 require('./models/convolutionnal')
 
---torch.manualSeed(123)
+--torch.manualSeed(42) -- This one is very tough, more than one epoch, and dies
+torch.manualSeed(1337)
 train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
 

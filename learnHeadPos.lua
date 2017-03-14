@@ -65,7 +65,6 @@ function Rico_Training(model,batch,y,LR)
       -- reset gradients
       gradParameters:zero()
 
-      
       local yhat = model:forward(batch)
       local loss = criterion:forward(yhat,y)
 
@@ -98,8 +97,8 @@ function accuracy(imgs_test,truth)
    for i=1,#imgs_test do x[i]=imgs_test[i] end
    local yhat = model:forward(x:cuda())
 
-   print("yhat",yhat[1][1],yhat[2][1],yhat[3][1],yhat[4][1],yhat[60][1],yhat[61][1])
-   print("y",truth[1],truth[2],truth[3],truth[4],truth[60],truth[61])
+   print("yhat",yhat[1][1],yhat[2][1],yhat[3][1],yhat[4][1],yhat[60][1])
+   print("y",truth[1],truth[2],truth[3],truth[4],truth[60])
    
    for i=1,#imgs_test do
       acc = acc + math.sqrt(math.pow(yhat[i][1]-truth[i],2))
@@ -108,55 +107,59 @@ function accuracy(imgs_test,truth)
 end
 
 
-function train_Epoch(model,list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
+function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
-   local sizeBatch=40
+   local sizeBatch=60
    local nbEpoch=100
    local nbBatch=15
    local name_save=Log_Folder..'HeadSupervised.t7'
 
-   --to normalize images, you need them, 'preprocessing' function calculate those values
-   local mean = 0 
-   local std = 0 
+   local plot = true
+   local loading = false
 
    nbList= #list_folders_images
 
-   print("Loading Images")
-   reconstruct = false
-   imgs, std, mean = loadTrain(reconstruct)
-   print("Training")
+   for crossValStep=1,nbList do
 
-   -- we use last list as test 
-   local list_truth=images_Paths(list_folders_images[nbList])
-   local imgs_test=load_list(list_truth,image_width,image_height,false)
+      models = createModels()
 
-   local imgs_test = preprocessingTest(imgs_test,mean,std)
+      currentLogFolder=Log_Folder..'CrossVal'..crossValStep..'/' --*
 
-   local txt_test=list_txt[nbList]
-   local truth=getTruth(txt_test,use_simulate_images)
-
-   assert(#imgs_test==#truth,"Different number of images and corresponding ground truth, something is wrong")
-   
-   --for epoch=1, nbEpoch do
-   for epoch=1,1 do
-
-      print('--------------Epoch : '..epoch..' ---------------')
-      local lossTemp=0
-
-      for numBatch=1, nbBatch do
-         Batch_Temp, y =getRandomBatch(imgs, list_txt, sizeBatch)
-         lossTemp = lossTemp + Rico_Training(model,Batch_Temp,y, LR)
-         xlua.progress(numBatch, nbBatch)
+      if file_exists('imgsCv'..crossValStep..'.t7') and loading then
+         print("Data Already Exists, Loading")
+         imgs = torch.load('imgsCv'..crossValStep..'.t7')
+         imgs_test = imgs[#imgs]
+      else
+         local imgs, imgs_test = loadTrainTest(list_folders_images,crossValStep)
+         torch.save('imgsCv'..crossValStep..'.t7', imgs)
       end
 
-      print("lossTemp",lossTemp/nbBatch)
-      print("Test accuracy = ",accuracy(imgs_test,truth)/nbBatch)
-      
-   end
-   save_model(model,name_save)
+      -- we use last list as test
+      list_txt[crossValStep],list_txt[#list_txt] = list_txt[#list_txt], list_txt[crossValStep]
+      local txt_test=list_txt[#list_txt]
+      local truth=getTruth(txt_test,use_simulate_images)
 
-   
-end --*
+      assert(#imgs_test==#truth,"Different number of images and corresponding ground truth, something is wrong \nNumber of Images : "..#imgs_test.." and Number of truth value : "..#truth)
+
+      print("Test accuracy before training",accuracy(imgs_test,truth)/nbBatch)
+      for epoch=1, nbEpoch do
+
+         print('--------------Epoch : '..epoch..' ---------------')
+         local lossTemp=0
+
+         for numBatch=1, nbBatch do
+            Batch_Temp, y =getRandomBatch(imgs, list_txt, sizeBatch)
+            lossTemp = lossTemp + Rico_Training(model,Batch_Temp,y, LR)
+            xlua.progress(numBatch, nbBatch)
+         end
+
+         print("lossTemp",lossTemp/nbBatch)
+         print("Test accuracy = ",accuracy(imgs_test,truth)/nbBatch)
+         
+      end
+      save_model(model,name_save)
+   end
+end
 
 local LR=0.0001
 local dataAugmentation=true
@@ -164,14 +167,8 @@ local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 local loading = true
 
-
 image_width=200
 image_height=200
 
 torch.manualSeed(123)
-
-model=getModel()
-model=model:cuda()
-parameters,gradParameters = model:getParameters()
-
-train_Epoch(model,list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
+train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
