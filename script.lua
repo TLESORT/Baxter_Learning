@@ -54,17 +54,17 @@ end
 function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
    local BatchSize=15
-   local nbEpoch=20
+   local nbEpoch=2
    local totalBatch=15
    local name_save=Log_Folder..'reprLearner1d.t7'
    local coef_Temp=1
    local coef_Prop=1
    local coef_Rep=1
-   local coef_Caus=1
+   local coef_Caus=2
    local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
    local list_corr={}
 
-   local plot = true
+   local plot = false
    local loading = true
 
    nbList= #list_folders_images

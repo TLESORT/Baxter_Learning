@@ -58,7 +58,7 @@ end
 -- Output (list_txt):  txt list associated to each directories (this txt file contains the grundtruth of the robot position)
 ---------------------------------------------------------------------------------------
 function Get_HeadCamera_HeadMvt()
-   local Path="./moreData/"
+   local Path="./Data/"
    local Paths_Folder, list_txt=Get_Folders(Path,'head_pan')
 
    table.sort(list_txt)
@@ -230,7 +230,13 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
    local head_pan_indice=2
    local tensor, label=tensorFromTxt(txt1)
    local tensor2, label=tensorFromTxt(txt2)
-   local rewarded_Joint={1.4,1.3,-1.3,-1.4}
+   local rewarded_Joint = {}
+   
+   if string.find(txt1, "moreData") then
+      rewarded_Joint={-1.3,1.3,-1.4,1.4}
+   else
+      rewarded_Joint={-0.8,0.8}
+   end
 
    local size1=tensor:size(1)
    local size2=tensor2:size(1)
