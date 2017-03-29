@@ -24,7 +24,7 @@ image_height=200
 
 function Rico_Training(models, Mode,batch, coef, LR)
    local LR=LR or 0.001
-   local optimizer = optim.rmsprop
+   local optimizer = optim.adam
    
    -- create closure to evaluate f(X) and df/dX
    local feval = function(x)
@@ -53,9 +53,9 @@ end
 
 function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
-   local BatchSize=15
-   local nbEpoch=2
-   local totalBatch=15
+   local BatchSize=16
+   local nbEpoch=10
+   local totalBatch=20
    local name_save=Log_Folder..'reprLearner1d.t7'
    local coef_Temp=1
    local coef_Prop=1
@@ -64,7 +64,7 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
    local coef_list={coef_Temp,coef_Prop,coef_Rep,coef_Caus}
    local list_corr={}
 
-   local plot = false
+   local plot = true
    local loading = true
 
    nbList= #list_folders_images
@@ -107,6 +107,8 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
          local lossRep=0
          local lossProp=0
          local lossCaus=0
+
+         local causAdded = 0
          
          for numBatch=1,totalBatch do
 
@@ -128,23 +130,35 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
             -- print("txt1",txt1)
             -- print("txt2",txt2)
 
-            Batch_Temp=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Temp")
-            Batch_Prop=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Prop")
-            Batch_Rep=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Rep")
-            Batch_Caus=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Caus")
+            -- if numBatch%3==0 then
+            --    causAdded = causAdded + 1
+            --    batch=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Caus")
+            --    lossCaus = lossCaus + Rico_Training(models, 'Caus',batch, 1,LR)
+            -- end
 
-            lossTemp = lossTemp + Rico_Training(models,'Temp',Batch_Temp, coef_Temp,LR)
-            lossProp = lossProp + Rico_Training(models, 'Prop',Batch_Prop, coef_Prop,LR)
-            lossRep = lossRep + Rico_Training(models,'Rep',Batch_Rep, coef_Rep,LR)
-            lossCaus = lossCaus + Rico_Training(models, 'Caus',Batch_Caus, coef_Caus,LR)
+            batch=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Temp")
+            lossTemp = lossTemp + Rico_Training(models,'Temp',batch, coef_Temp,LR)
+
+            batch=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Caus")
+            lossCaus = lossCaus + Rico_Training(models, 'Caus',batch, 1,LR)
+
+            batch=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Prop")
+            lossProp = lossProp + Rico_Training(models, 'Prop',batch, coef_Prop,LR)
+
+            batch=getRandomBatch(imgs1,imgs2,txt1,txt2,BatchSize,"Rep")
+            lossRep = lossRep + Rico_Training(models,'Rep',batch, coef_Rep,LR)
+
+
+            
             xlua.progress(numBatch, totalBatch)
+
          end
          corr=Print_performance(models, imgs_test,txt_test,"Test",currentLogFolder,truth,false)
          print("Correlation : ", corr)
          print("lossTemp",lossTemp/totalBatch)
          print("lossProp",lossProp/totalBatch)
          print("lossRep",lossRep/totalBatch)
-         print("lossCaus",lossCaus/totalBatch)
+         print("lossCaus",lossCaus/(totalBatch+causAdded))
          table.insert(list_corr,corr)
          
       end
@@ -152,9 +166,8 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
       --show_figure(list_corr,currentLogFolder..'correlation.log','-')
 
       --for reiforcement, we need mean and std to normalize representation
+      print("SAVING MODEL AND REPR")
       saveMeanAndStdRepr(imgs)
-
-      
       models.model1:float()
       save_model(models.model1,name_save)
 
@@ -164,15 +177,15 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
    end --*
 end
 
-local LR=0.0001
+local LR=0.001
 local dataAugmentation=true
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
 
 require('./models/convolutionnal')
 
---torch.manualSeed(42) -- This one is very tough, more than one epoch, and dies
-torch.manualSeed(1337)
+torch.manualSeed(42) -- This one is very tough, more than one epoch, and dies
+--torch.manualSeed(1337)
 train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
 

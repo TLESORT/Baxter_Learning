@@ -1,3 +1,4 @@
+local randomFactor = 20
 ---------------------------------------------------------------------------------------
 -- Function : images_Paths(path)
 -- Input (Path): path of a Folder which contained jpg images
@@ -58,7 +59,7 @@ end
 -- Output (list_txt):  txt list associated to each directories (this txt file contains the grundtruth of the robot position)
 ---------------------------------------------------------------------------------------
 function Get_HeadCamera_HeadMvt()
-   local Path="./Data/"
+   local Path="./moreData/"
    local Paths_Folder, list_txt=Get_Folders(Path,'head_pan')
 
    table.sort(list_txt)
@@ -123,8 +124,9 @@ function get_one_random_Prop_Set(txt,use_simulate_images)
    local size=tensor:size(1)
 
    while WatchDog<100 do
-      indice1=torch.random(1,size-1)
-      indice2=indice1+1
+      nextImg=torch.random(1,randomFactor)
+      indice1=torch.random(1,size-nextImg)
+      indice2=indice1+nextImg
       State1=tensor[indice1][head_pan_indice]
       State2=tensor[indice2][head_pan_indice]
       delta=State2-State1
@@ -157,7 +159,7 @@ end
 ---------------------------------------------------------------------------------------
 function get_two_Prop_Pair(txt1, txt2)
 
-   assert(txt1~=txt2) -- if you need prop image association from only one txt file see "get_one_random_Temp_Set(list_lenght)"
+   assert(txt1~=txt2, "if you need prop image association from only one txt file see 'get_one_random_Temp_Set(list_lenght)'")
    local WatchDog=0
    local head_pan_indice=2
 
@@ -177,21 +179,23 @@ function get_two_Prop_Pair(txt1, txt2)
    local size1=tensor:size(1)
    local size2=tensor2:size(1)
 
-   vector=torch.randperm(size2-1)
 
    while WatchDog<100 do
       repeat
-         indice1=torch.random(1,size1-1)
-         indice2=indice1+1	
+         nextImg = torch.random(1,randomFactor)
+         indice1=torch.random(1,size1-nextImg)
+         indice2=indice1+nextImg
          State1=tensor[indice1][head_pan_indice]
          State2=tensor[indice2][head_pan_indice]
          delta=State2-State1
       until(delta~=0)
 
-      for i=1, size2-1 do
+      vector=torch.randperm(size2-nextImg)
+
+      for i=1, size2-nextImg do
          id=vector[i]
          State3=tensor2[id][head_pan_indice]
-         id2=id+1
+         id2=id+nextImg
          State4=tensor2[id2][head_pan_indice]
          delta2=State4-State3
          if arrondit(delta2-delta)==0 then
@@ -206,8 +210,6 @@ function get_two_Prop_Pair(txt1, txt2)
    print("PROP WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
    assert(false, "Get_Baxter_File.lua line 207, database is broken")
 end
-
-
 
 local function isRewardJoint(joint, ListRewardJoint)
    local isReward=false
@@ -231,9 +233,9 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
    local tensor, label=tensorFromTxt(txt1)
    local tensor2, label=tensorFromTxt(txt2)
    local rewarded_Joint = {}
-   
-   if string.find(txt1, "moreData") then
-      rewarded_Joint={-1.3,1.3,-1.4,1.4}
+
+   if string.find(txt1, "moreData") or string.find(txt1, "simpleData") then
+      rewarded_Joint={-1.3,1.3,1.4,-1.4,-1.5,1.5}
    else
       rewarded_Joint={-0.8,0.8}
    end
@@ -247,7 +249,7 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
          State1=tensor[indice1][head_pan_indice]
          indice2=indice1+1
          State2=tensor[indice2][head_pan_indice]
-      until(not(isRewardJoint(State1,rewarded_Joint)or isRewardJoint(State2,rewarded_Joint)))
+      until(not(isRewardJoint(State1,rewarded_Joint) or isRewardJoint(State2,rewarded_Joint)))
 
       delta=State2-State1
 
@@ -271,7 +273,7 @@ function get_one_random_Caus_Set(txt1, txt2,use_simulate_images)
       end
       WatchDog=WatchDog+1
    end
-   print("CAUS WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
+   assert(false,"CAUS WATCHDOG ATTACK!!!!!!!!!!!!!!!!!!")
 end
 
 
@@ -300,9 +302,12 @@ end
 -- Input (head_pan_indice) : 
 -- Output (tensor): 
 ---------------------------------------------------------------------------------------
-function arrondit(value)
-   floor=math.floor(value*10)/10
-   ceil=math.ceil(value*10)/10
+function arrondit(value,precision)
+   precision = precision or 1
+   multi = math.pow(10,precision)
+   
+   floor=math.floor(value*multi)/multi
+   ceil=math.ceil(value*multi)/multi
    if math.abs(value-ceil)>math.abs(value-floor) then result=floor
    else result=ceil end
    return result
