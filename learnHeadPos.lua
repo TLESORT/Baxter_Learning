@@ -19,21 +19,16 @@ require('./models/convolutionnal')
 local function getRandomBatch(imgs,list_txt, sizeBatch)
 
    local numSeq = #list_txt
-
-   local indice1=torch.random(1,numSeq-1)
-   local txt=list_txt[indice1]
-   local imgsTemp=imgs[indice1]
-
-
-   local truth=getTruth(txt)
-   
-   local batchList = {}
-   local yList = {}
-
-   clh = imgsTemp[1]:size() -- Channel, Length, Height
+   clh = imgs[1][1]:size() -- Channel, Length, Height
    batch = torch.zeros(sizeBatch,clh[1],clh[2],clh[3])
    
+   local yList = {}
+
    for i=1,sizeBatch do
+      local indice1=torch.random(1,numSeq-1)
+      local txt=list_txt[indice1]
+      local truth=getTruth(txt)
+      local imgsTemp=imgs[indice1]
       local id=torch.random(1,#imgsTemp)
       batch[i] = imgsTemp[id]
       yList[i] = truth[id] 
@@ -50,7 +45,7 @@ end
 
 function Rico_Training(model,batch,y,LR)
    local LR=LR or 0.001
-   local optimizer = optim.rmsprop
+   local optimizer = optim.adam
    -- local criterion = nn.MSECriterion():cuda()
    local criterion = nn.SmoothL1Criterion():cuda()
    
@@ -67,16 +62,6 @@ function Rico_Training(model,batch,y,LR)
 
       local yhat = model:forward(batch)
       local loss = criterion:forward(yhat,y)
-
-      -- if i>100 then
-      --    print("x1",batch[1][{1,1,{1,5}}])
-
-      --    print("x2",batch[2][{1,1,{1,5}}])
-
-      --    print("yhat",yhat)
-      --    print("y",y)
-      --    io.read()
-      -- end
 
       local grad = criterion:backward(yhat,y)
       model:backward(batch, grad)
@@ -110,12 +95,12 @@ end
 function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
    local sizeBatch=60
-   local nbEpoch=100
-   local nbBatch=15
+   local nbEpoch=20
+   local nbBatch=math.floor(#list_folders_images*65/sizeBatch)
    local name_save=Log_Folder..'HeadSupervised.t7'
 
    local plot = true
-   local loading = false
+   local loading = true
 
    nbList= #list_folders_images
 

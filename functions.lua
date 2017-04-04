@@ -21,17 +21,18 @@ end
 function loadTrainTest(list_folders_images, crossValStep)
 
    imgs = {}
+   preload_name = PRELOAD_FOLDER..'saveImgsRaw.t7'
    print("Loading Images")
 
-   if not file_exists('saveImgsRaw.t7') then
+   if not file_exists(preload_name) then
       print("nbList",nbList)
       for i=1,nbList do
          list=images_Paths(list_folders_images[i])
          table.insert(imgs,load_list(list,image_width,image_height,false))
       end
-      torch.save('saveImgsRaw.t7',imgs)
+      torch.save(preload_name,imgs)
    else
-      imgs = torch.load('saveImgsRaw.t7')
+      imgs = torch.load(preload_name)
    end
 
    -- switch value, because all functions consider the last element to be the test element

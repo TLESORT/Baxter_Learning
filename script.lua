@@ -74,14 +74,16 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
       models = createModels()
 
       currentLogFolder=Log_Folder..'CrossVal'..crossValStep..'/' --*
+      current_preload_file = PRELOAD_FOLDER..'imgsCv'..crossValStep..'.t7'
+      
 
-      if file_exists('imgsCv'..crossValStep..'.t7') and loading then
+      if file_exists(current_preload_file) and loading then
          print("Data Already Exists, Loading")
-         imgs = torch.load('imgsCv'..crossValStep..'.t7')
+         imgs = torch.load(current_preload_file)
          imgs_test = imgs[#imgs]
       else
          local imgs, imgs_test = loadTrainTest(list_folders_images,crossValStep)
-         torch.save('imgsCv'..crossValStep..'.t7', imgs)
+         torch.save(current_preload_file, imgs)
       end
 
       -- we use last list as test
@@ -181,6 +183,8 @@ local LR=0.001
 local dataAugmentation=true
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
+
+PRELOAD_FOLDER='./preload_folder/'
 
 require('./models/convolutionnal')
 

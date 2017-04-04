@@ -1,4 +1,4 @@
-local randomFactor = 20
+local randomFactor = 20 -- For rep and prop priors
 ---------------------------------------------------------------------------------------
 -- Function : images_Paths(path)
 -- Input (Path): path of a Folder which contained jpg images
@@ -58,8 +58,8 @@ end
 -- Output (list_head_left): list of the images directories path
 -- Output (list_txt):  txt list associated to each directories (this txt file contains the grundtruth of the robot position)
 ---------------------------------------------------------------------------------------
-function Get_HeadCamera_HeadMvt()
-   local Path="./moreData/"
+function Get_HeadCamera_HeadMvt(Path)
+   local Path= Path or "./moreData/"
    local Paths_Folder, list_txt=Get_Folders(Path,'head_pan')
 
    table.sort(list_txt)
@@ -294,7 +294,6 @@ function getTruth(txt)
    end
    return truth
 end
-
 
 ---------------------------------------------------------------------------------------
 -- Function : arrondit(value)
