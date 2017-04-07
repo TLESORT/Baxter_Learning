@@ -21,17 +21,18 @@ end
 function loadTrainTest(list_folders_images, crossValStep)
 
    imgs = {}
+   preload_name = PRELOAD_FOLDER..'saveImgsRaw.t7'
    print("Loading Images")
 
-   if not file_exists('saveImgsRaw.t7') then
+   if not file_exists(preload_name) then
       print("nbList",nbList)
       for i=1,nbList do
          list=images_Paths(list_folders_images[i])
          table.insert(imgs,load_list(list,image_width,image_height,false))
       end
-      torch.save('saveImgsRaw.t7',imgs)
+      torch.save(preload_name,imgs)
    else
-      imgs = torch.load('saveImgsRaw.t7')
+      imgs = torch.load(preload_name)
    end
 
    -- switch value, because all functions consider the last element to be the test element
@@ -79,14 +80,19 @@ function meanAndStd(imgs)
    local mean = {torch.zeros(length,height),torch.zeros(length,height),torch.zeros(length,height)}
    local std = {torch.zeros(length,height),torch.zeros(length,height),torch.zeros(length,height)}
 
+   for i=1,3 do
+      mean[i] = mean[i]:float()
+      std[i] = std[i]:float()
+   end
+   
    local numSeq = #imgs-1
    local totImg = 0
 
    for i=1,numSeq do
       for j=1,#(imgs[i]) do
-         mean[1] = mean[1]:add(imgs[i][j][{1,{},{}}]:double())
-         mean[2] = mean[2]:add(imgs[i][j][{2,{},{}}]:double())
-         mean[3] = mean[3]:add(imgs[i][j][{3,{},{}}]:double())
+         mean[1] = mean[1]:add(imgs[i][j][{1,{},{}}]:float())
+         mean[2] = mean[2]:add(imgs[i][j][{2,{},{}}]:float())
+         mean[3] = mean[3]:add(imgs[i][j][{3,{},{}}]:float())
          totImg = totImg+1
       end
    end
@@ -97,9 +103,9 @@ function meanAndStd(imgs)
 
    for i=1,numSeq do
       for j=1,#(imgs[i]) do
-         std[1] = std[1]:add(torch.pow(imgs[i][j][{1,{},{}}]:double() - mean[1],2))
-         std[2] = std[2]:add(torch.pow(imgs[i][j][{2,{},{}}]:double() - mean[2],2))
-         std[3] = std[3]:add(torch.pow(imgs[i][j][{3,{},{}}]:double() - mean[3],2))
+         std[1] = std[1]:add(torch.pow(imgs[i][j][{1,{},{}}]:float() - mean[1],2))
+         std[2] = std[2]:add(torch.pow(imgs[i][j][{2,{},{}}]:float() - mean[2],2))
+         std[3] = std[3]:add(torch.pow(imgs[i][j][{3,{},{}}]:float() - mean[3],2))
       end
    end
 
@@ -113,7 +119,7 @@ end
 
 function normalize(im,mean,std)
    for i=1,3 do
-      im[{i,{},{}}] = (im[{i,{},{}}] - mean[i])/std[i]
+      im[{i,{},{}}] = (im[{i,{},{}}]:add(-mean[i])):cdiv(std[i])
    end
    return im
 end
@@ -125,6 +131,29 @@ function preprocessingTest(imgs,mean,std)
       imgs[i] = normalize(im,mean,std)
    end
    return imgs
+end
+
+function preprocessing(imgs,meanStd)
+   -- Calculate reformat imgs, mean and std for images in train set
+   -- normalize train set and apply to test
+   
+   imgs = scaleAndCrop(imgs)
+   if not meanStd then
+      mean, std = meanAndStd(imgs)
+   else
+      mean, std = meanStd[1], meanStd[2]
+   end
+   
+   numSeq = #imgs-1
+   for i=1,numSeq do
+      for j=1,#(imgs[i]) do
+         im = imgs[i][j]
+         imgs[i][j] =  dataAugmentation(im, mean,std)
+      end
+   end
+   imgs[#imgs] = preprocessingTest(imgs[#imgs], mean,std)
+
+   return imgs, mean, std
 end
 
 
@@ -171,66 +200,27 @@ function scaleAndRandomCrop(imgs, length, height)
 end
    
 
-function preprocessing(imgs,meanStd)
-
-   -- Calculate reformat imgs, mean and std for images in train set, normalize train set and apply to test
-   imgs = scaleAndCrop(imgs)
-   if not meanStd then
-      mean, std = meanAndStd(imgs)
-   else
-      mean, std = meanStd[1], meanStd[2]
-   end
-
-   numSeq = #imgs-1
-   for i=1,numSeq do
-      for j=1,#(imgs[i]) do
-         im = imgs[i][j]
-         imgs[i][j] =  dataAugmentation(im, mean,std)
-      end
-   end
-   imgs[#imgs] = preprocessingTest(imgs[#imgs])
-
-   return imgs, mean, std
-end
-
-
 function dataAugmentation(im, mean, std)
    local channels = {'r','g','b'}
-   local noiseReductionFactor = 2 -- the bigger, less noise
+   local noiseReductionFactor = 4 -- the bigger, less noise
    local length = im:size(2)
    local width = im:size(3)
-   local maxShift = 80
+   local maxShift = 1
 
-   for i=1,3 do
-      colorShift = torch.uniform(-maxShift,maxShift)
-      im[{i,{},{}}] = im[{i,{},{}}] + colorShift
-   end
-   
-   -- Adding Gaussian noise to the data
-   noise=torch.rand(3,length,width)/noiseReductionFactor
-   noise = noise - 0.5/noiseReductionFactor --center noise
-
-   im = normalize(im):add(noise:float())
-
+   im = normalize(im, mean, std)
    return im
 
-end
-
-function normalize(data)
-   -- Name channels for convenience
-   local channels = {'r','g','b'}
-   local mean = {}
-   local std = {}
+   -- for i=1,3 do
+   --    colorShift = torch.uniform(-maxShift,maxShift)
+   --    im[{i,{},{}}] = im[{i,{},{}}] + colorShift
+   -- end
    
-   for i,channel in ipairs(channels) do
-      -- normalize each channel globally:
-      mean[i] = data[i]:mean()
-      std[i] = data[{i,{},{}}]:std()
-      data[{i,{},{}}]:add(-mean[i])
-      data[{i,{},{}}]:div(std[i])
-   end
+   -- -- Adding Gaussian noise to the data
+   -- noise=torch.rand(3,length,width)/noiseReductionFactor
+   -- noise = noise - 0.5/noiseReductionFactor --center noise
 
-   return data
+   -- im = normalize(im, mean, std):add(noise:float())
+   -- return im
 end
 
 function getRandomBatch(imgs1, imgs2, txt1, txt2, lenght, Mode)
@@ -268,7 +258,7 @@ function getRandomBatch(imgs1, imgs2, txt1, txt2, lenght, Mode)
 
 end
 
-function saveMeanAndStdRepr(imgs)
+function saveMeanAndStdRepr(imgs, show, model)
    local Log_Folder='./Log/'
    local allRepr = {}
    local totImgs = 0
@@ -276,22 +266,29 @@ function saveMeanAndStdRepr(imgs)
    local std = nil
 
    -- ===== Uncomment if you want to display images (and use qlua instead of th)
-   --w = image.display(image.lena()) -- with positional arguments mode
+   if show then
+      w = image.display(image.lena()) -- with positional arguments mode
+   end
+
    
    for s=1,#imgs do
       local imgs_test = imgs[s]
       for i=1,#imgs_test do
          local img = torch.zeros(1,3,200,200)
          img[1] = imgs_test[i]
-         allRepr[#allRepr+1] = models.model1:forward(img:cuda()):float()
 
+         if model then
+            allRepr[#allRepr+1] = model:forward(img:float())
+         else
+            allRepr[#allRepr+1] = models.model1:forward(img:cuda()):float()
+         end
          --====== Printing the state corresponding to the image =====
          -- ====== don't forget to uncomment the line 'w = image ... " above
-         -- if s==1 then
-         --    image.display{image=img, win=w}
-         --    print(allRepr[#allRepr][1])
-         --    io.read()
-         -- end
+         if show then
+            image.display{image=img, win=w}
+            print(allRepr[#allRepr][1])
+            io.read()
+         end
 
          if mean then
             mean = torch.add(mean, allRepr[#allRepr])
