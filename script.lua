@@ -54,7 +54,7 @@ end
 function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
    local BatchSize=16
-   local nbEpoch=10
+   local nbEpoch=2
    local totalBatch=20
    local name_save=Log_Folder..'reprLearner1d.t7'
    local coef_Temp=1
@@ -179,7 +179,7 @@ function train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images
    end --*
 end
 
-local LR=0.001
+local LR=0.00001
 local dataAugmentation=true
 local Log_Folder='./Log/'
 local list_folders_images, list_txt=Get_HeadCamera_HeadMvt()
@@ -188,8 +188,8 @@ PRELOAD_FOLDER='./preload_folder/'
 
 require('./models/convolutionnal')
 
-torch.manualSeed(42) -- This one is very tough, more than one epoch, and dies
---torch.manualSeed(1337)
+-- torch.manualSeed(42) -- This one is very tough, more than one epoch, and dies
+-- torch.manualSeed(1337)
 train_Epoch(list_folders_images,list_txt,Log_Folder,use_simulate_images,LR)
 
 

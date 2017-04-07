@@ -9,7 +9,7 @@ require 'functions'
 
 local function ReprFromImgs(imgs,name)
 
-   local fileName = 'allReprSaved'..name..'.t7'
+   local fileName = 'preload_folder/'..'allReprSaved'..name..'.t7'
    
    if file_exists(fileName) then
       return torch.load(fileName)
@@ -31,21 +31,30 @@ local function ReprFromImgs(imgs,name)
    return X
 end
 
-local function HeadPosFromTxts(txts)
-   X = {}
+local function HeadPosFromTxts(txts, isData)
+   --Since i use this function for creating X tensor for debugging
+   -- or y tensor, the label tensor, i need a flag just to tell if i need X or y
+
+   --isData = true => X tensor      isData = false => y tensor
+   
+   T = {}
    for l, txt in ipairs(txts) do
       truth = getTruth(txt)
       for i, head_pos in ipairs(truth) do
-         X[#X+1] = head_pos
+         T[#T+1] = head_pos
       end
    end
 
-   Xtemp = torch.Tensor(X)
-   X = torch.zeros(#X,1)
-   X[{{},1}] = Xtemp
-   return X
-end
+   T = torch.Tensor(T)
 
+   if isData then --is it X or y that you need ?
+      Ttemp = torch.zeros(T:size(1),1)
+      Ttemp[{{},1}] = T
+      T = Ttemp
+   end
+
+   return T
+end
 
 local function RewardsFromTxts(txts)
    y = {}
@@ -80,23 +89,22 @@ local function RandomBatch(X,y,sizeBatch)
    -- print("batch",batch)
    -- print("y_temp",y_temp)
    -- io.read()
+   batch = batch:cuda()
+   y_temp = y_temp:cuda()
+   return batch, y_temp
    
-   for i=1,sizeBatch do
-      if y_temp[i]==1 then
-         batch = batch:cuda()
-         y_temp = y_temp:cuda()
-         return batch, y_temp
-      end
-   end
-
-   return RandomBatch(X,y,sizeBatch)
-      
 end
 
-function Rico_Training(model,batch,y,LR)
-   local LR=LR or 0.001
+function Rico_Training(model,batch,y,reconstruct, LR)
+
+   local criterion
    local optimizer = optim.adam
-   local criterion = nn.CrossEntropyCriterion():cuda()
+
+   if reconstruct then
+      criterion = nn.SmoothL1Criterion():cuda()
+   else
+      criterion = nn.CrossEntropyCriterion():cuda()
+   end
    
    -- create closure to evaluate f(X) and df/dX
    local feval = function(x)
@@ -136,6 +144,20 @@ function accuracy(X_test,y_test,model)
    return acc/y_test:size(1)
 end
 
+function accuracy_reconstruction(X_test,y_test, model)
+   local acc = 0
+   local yhat = model:forward(X_test:cuda())
+
+   -- print("yhat",yhat[1][1],yhat[2][1],yhat[3][1],yhat[4][1],yhat[60][1])
+   -- print("y",truth[1],truth[2],truth[3],truth[4],truth[60])
+   
+   for i=1,X_test:size(1) do
+      acc = acc + math.sqrt(math.pow(yhat[i][1]-y_test[i],2))
+   end
+   return acc
+end
+
+
 function rand_accuracy(y_test)
    count = 0
    for i=1,y_test:size(1) do
@@ -154,121 +176,95 @@ function createModelReward()
    return net:cuda()
 end
 
-function createModelReward()
+function createModelReconstruction()
    net = nn.Sequential()
-   net:add(nn.Linear(1,3))
-   net:add(nn.Tanh())
-   net:add(nn.Linear(3,1))
+   net:add(nn.Linear(1,1))
    return net:cuda()
 end
 
-function trainRewardPrediction(X,y)
-   local sizeBatch=80
-   local nbEpoch=100
-   local LR=0.05
 
-   local nbBatch=math.floor(X:size(1)/sizeBatch)
-
-   local PLOT = true
-   local LOADING = true
+function train(X,y, reconstruct)
+   reconstruct = reconstruct or true
 
    local nbList = 10
    local numEx = X:size(1)
+   local splitTrainTest = 0.75
 
    local sizeTest = math.floor(numEx/nbList)
    
-   id_test = {{math.floor(numEx*0.9), numEx}}
+   id_test = {{math.floor(numEx*splitTrainTest), numEx}}
    X_test = X[id_test]
    y_test = y[id_test]
    
-   id_train = {{1,math.floor(numEx*0.9)}}
+   id_train = {{1,math.floor(numEx*splitTrainTest)}}
    X_train = X[id_train]
    y_train = y[id_train]
 
-   model = createModelReward()
-   parameters,gradParameters = model:getParameters()
+   if reconstruct then
+      model = createModelReconstruction()
+      print("Test accuracy before training",accuracy_reconstruction(X_test,y_test,model))
 
-   print("Test accuracy before training",accuracy(X_test,y_test,model))
-   print("Random accuracy", rand_accuracy(y_test))
-   for epoch=1, nbEpoch do
-
-      print('--------------Epoch : '..epoch..' ---------------')
-      local lossTemp=0
-
-      for numBatch=1, nbBatch do
-         batch_temp, y = RandomBatch(X_train,y_train,sizeBatch)
-
-         lossTemp = lossTemp + Rico_Training(model,batch_temp,y, LR)
-         xlua.progress(numBatch, nbBatch)
-      end
-      print("lossTemp",lossTemp/nbBatch)
-      print("Test accuracy = ",accuracy(X_test,y_test,model))
+   else
+      model = createModelReward()
+      print("Test accuracy before training",accuracy(X_test,y_test,model))
+      print("Random accuracy", rand_accuracy(y_test))
    end
-end
-
-
-function trainRewardPrediction(X,y)
-
-   local nbList = 10
-   local numEx = X:size(1)
-
-   local sizeTest = math.floor(numEx/nbList)
-   
-   id_test = {{math.floor(numEx*0.9), numEx}}
-   X_test = X[id_test]
-   y_test = y[id_test]
-   
-   id_train = {{1,math.floor(numEx*0.9)}}
-   X_train = X[id_train]
-   y_train = y[id_train]
-
-   model = createModelReconstruction()
    parameters,gradParameters = model:getParameters()
 
-   print("Test accuracy before training",accuracy(X_test,y_test,model))
-   print("Random accuracy", rand_accuracy(y_test))
    for epoch=1, NB_EPOCH do
 
-      print('--------------Epoch : '..epoch..' ---------------')
       local lossTemp=0
 
       for numBatch=1, NB_BATCH do
          batch_temp, y = RandomBatch(X_train,y_train,SIZE_BATCH)
-
-         lossTemp = lossTemp + Rico_Training(model,batch_temp,y, LR)
-         xlua.progress(numBatch, NB_BATCH)
+         lossTemp = lossTemp + Rico_Training(model,batch_temp,y, reconstruct, LR)
       end
-      print("lossTemp",lossTemp/NB_BATCH)
-      print("Test accuracy = ",accuracy(X_test,y_test,model))
+
+      if epoch==NB_EPOCH then
+         print("lossTemp",lossTemp/NB_BATCH)
+
+         if reconstruct then
+            print("Test accuracy = ",accuracy_reconstruction(X_test,y_test,model))
+         else
+            print("Test accuracy = ",accuracy(X_test,y_test,model))
+         end
+      end
    end
 end
 
 MODEL_PATH = 'Log/'
---MODEL_NAME, name = 'Save97Win/reprLearner1d.t7', '97'
-MODEL_NAME,name = 'reprLearner1dWORKS.t7', 'works'
+
+MODEL_NAME, name = 'Save97Win/reprLearner1d.t7', '97'
+--MODEL_NAME,name = 'reprLearner1dWORKS.t7', 'works'
+--MODEL_NAME,name = 'reprLearner1d.t7', 'shit2'
+
 PATH_RAW_DATA = 'moreData/'
 PATH_PRELOAD_DATA = 'preload_folder/'
 DATA = PATH_PRELOAD_DATA..'imgsCv1.t7'
 
-SIZE_BATCH=80
+SIZE_BATCH=60
 NB_EPOCH=100
-LR=0.05
+LR=0.01
 PLOT = true
 LOADING = true
 
 TASK = 2
-
-local NB_BATCH=math.floor(X:size(1)/SIZE_BATCH)
-
+reconstructingTask = true
 
 local imgs = torch.load(DATA)
 imgs[1], imgs[#imgs] = imgs[#imgs], imgs[1] -- Because during database creation we swapped those values
 
 local _, list_txt=Get_HeadCamera_HeadMvt(PATH_RAW_DATA)
 
-y = RewardsFromTxts(list_txt)
-X = ReprFromImgs(imgs, name)
---X = HeadPosFromTxts(list_txt)
+if reconstructingTask then
+   y = HeadPosFromTxts(list_txt,false)
+else
+   y = RewardsFromTxts(list_txt)
+end
 
---trainRewardPrediction(X,y)
-trainReconstruction(X,y)
+--X = HeadPosFromTxts(list_txt,true)
+X = ReprFromImgs(imgs, name)
+
+NB_BATCH=math.floor(X:size(1)/SIZE_BATCH)
+
+train(X,y,reconstructingTask)
